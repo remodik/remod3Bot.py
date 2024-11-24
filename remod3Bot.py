@@ -15,7 +15,7 @@ from discord.abc import *
 import asyncio, ast, aiohttp
 from asyncio import sleep
 import hashlib
-from pypresence import Presence
+#from pypresence import Presence
 import math
 import io
 import json
