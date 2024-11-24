@@ -15,7 +15,7 @@ from discord.abc import *
 import asyncio, ast, aiohttp
 from asyncio import sleep
 import hashlib
-from pypresence import Presence
+#from pypresence import Presence
 import math
 import io
 import json
@@ -4007,28 +4007,29 @@ async def find_presence(ctx: discord.Interaction, text: str):
 
 bot.add_application_command(roles)
 bot.add_application_command(mod_com)
-match input("Connect RPC? >> "):
-    case 'y' | 'Y' | '+' | 'да' | 'Да' | 'Yes' | 'yes':
-        rpc = Presence("1206275841395392552")
-        rpc.connect()
-        rpc.update(state="Author: remodik", details="Version: 1.0", start=timedelta(days=500).total_seconds(),
-                   large_image="a_1b9fe156b57bf2f57b054a27c0fe4f73_1_",
-                   buttons=[{"label": "User Install",
-                             "url": "https://discord.com/oauth2/authorize?client_id=1206275841395392552&integration"
-                                    "_type=1&scope=applications.commands"},
-                            {"label": "Guild Install",
-                             "url": "https://discord.com/oauth2/authorize?client_id=1206275841395392552&permissions"
-                                    "=8&integration_type=0&scope=bot+applications.commands"}])
-        bot.run(data_as['token'])
+bot.run(data_as['token'])
+#match input("Connect RPC? >> "):
+#    case 'y' | 'Y' | '+' | 'да' | 'Да' | 'Yes' | 'yes':
+#        rpc = Presence("1206275841395392552")
+#        rpc.connect()
+#        rpc.update(state="Author: remodik", details="Version: 1.0", start=timedelta(days=500).total_seconds(),
+#                   large_image="a_1b9fe156b57bf2f57b054a27c0fe4f73_1_",
+#                   buttons=[{"label": "User Install",
+#                             "url": "https://discord.com/oauth2/authorize?client_id=1206275841395392552&integration"
+#                                    "_type=1&scope=applications.commands"},
+#                            {"label": "Guild Install",
+#                             "url": "https://discord.com/oauth2/authorize?client_id=1206275841395392552&permissions"
+#                                    "=8&integration_type=0&scope=bot+applications.commands"}])
+#        bot.run(data_as['token'])
 
         # async def start_bot():
         #     await bot.start(data_as['token'])
         #
         # if __name__ == "__main__":
         #     asyncio.run(start_bot())
-    case 'n' | 'N' | '-' | 'нет' | 'Нет' | 'no' | 'No':
+#    case 'n' | 'N' | '-' | 'нет' | 'Нет' | 'no' | 'No':
         # bot.run("MTIwNjI3NTg0MTM5NTM5MjU1Mg.GHQNw8.OXoM0SCc-U0ZbMg1pOfDqDIxEhjYV15olb9D0Y")
-        bot.run(data_as['token'])
+#        bot.run(data_as['token'])
         # async def start_bot():
         #     await bot.start(data_as['token'])
         #
