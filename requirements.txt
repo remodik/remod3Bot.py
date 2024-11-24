@@ -1,0 +1,7 @@
+py-cord
+colorama
+openai
+aiohttp
+bs4
+art
+requests
