@@ -1,0 +1,16 @@
+{
+  "token": "MTIwNjI3NTg0MTM5NTM5MjU1Mg.GHQNw8.OXoM0SCc-U0ZbMg1pOfDqDIxEhjYV15olb9D0Y",
+  "tokens": "MTIxMTA1MjMwNDg0NjAyODg1Mg.GX6hzL.jsftpogTVITxfx_UasLzv3HlLJr1UgnuUp6CQk",
+  "shi": "Yaebalholyworld",
+  "rawg_api_key": "60aeeb0760f34cd3a6ac1201ad1658ae",
+  "giantbomb_api_key": "f6e26652502ccb65535090ed25af3eb5627b761b",
+  "BASE_URL": "https://shikimori.one/api",
+  "allowed_roles": [1263854775900835904],
+  "allowed_users": [743864658951274528, 931585084312670219, 933020119783858247, 1097064973328453704],
+  "ROLE_ID_1": 1220410988289982506,
+  "ROLE_ID_2": 1220265238083928176,
+  "ROLE_ID_3": 1220298348683329616,
+  "hmb": 1138204059397005352,
+  "JDoodle_API_KEY": "80ff384c0cd36b85742619a19c2d696",
+  "JDoodle_API_SECRET": "9486fe3dd1a1bcc33781e167c34f05f55dff6fcf840c4dacebf99a70f97e78d3"
+}
