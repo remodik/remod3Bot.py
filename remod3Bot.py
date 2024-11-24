@@ -7,15 +7,16 @@ import discord
 from discord.utils import get
 from discord.ui import (View, Select, Button, Item, Modal, view)
 from discord.ext import tasks, commands
-from discord import (ui, SelectMenu, SelectOption, Interaction, guild_only, Option, Color, Embed,
-                     ButtonStyle, InputTextStyle, PartialEmoji, InputText, Colour)
+from discord import (ui, SelectMenu, SelectOption, Interaction, Option, Color, Embed, ButtonStyle, InputTextStyle,
+                     PartialEmoji, InputText, Colour, Emoji, Role, ApplicationContext, ApplicationCommand,
+                     AutocompleteContext, Forbidden, Button, Member, User)
 import discord.ext.commands.errors as error
 from discord.commands import permissions
 from discord.abc import *
 import asyncio, ast, aiohttp
 from asyncio import sleep
 import hashlib
-#from pypresence import Presence
+# from pypresence import Presence
 import math
 import io
 import json
@@ -23,6 +24,7 @@ import sqlite3
 import os, openai, operator
 import textwrap, time
 import subprocess
+from statistics import mean, median
 import requests, random, re
 from art import tprint
 from bs4 import BeautifulSoup
@@ -66,9 +68,9 @@ with open('json/config.json', 'r') as f:
 class CapsModal(Modal):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.add_item(discord.ui.InputText(label='Введите текст', style=discord.InputTextStyle.long))
+        self.add_item(ui.InputText(label='Введите текст', style=InputTextStyle.long))
 
-    async def callback(self, interaction: discord.Interaction):
+    async def callback(self, interaction: Interaction):
         text = self.children[0].value
         filtered_text = [c for c in text if c.isalpha()]
         caps_count = sum(1 for c in filtered_text if c.isupper())
@@ -79,7 +81,7 @@ class CapsModal(Modal):
 
     async def on_error(self, error: Exception, interaction: Interaction) -> None:
         await interaction.response.send_message(
-            f"Произошла ошибка! Свяжитесь с разработчиком для решения проблемы: `remodik`\n\n{error}")
+            f"Произошла ошибка! Свяжитесь с разработчиком для решения проблемы: `remodik`\n\n{error}", ephemeral=True)
 
 
 class CapsView(View):
@@ -90,7 +92,7 @@ class CapsView(View):
         self.author = author
         self.is_hidden = False
 
-    @discord.ui.button(label="Скрыть содержимое", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Скрыть содержимое", style=ButtonStyle.primary)
     async def toggle_visibility(self, button: Button, interaction: Interaction):
         if interaction.user != self.author:
             return await interaction.response.send_message("Вы не можете использовать эту кнопку.", ephemeral=True)
@@ -105,9 +107,9 @@ class CapsView(View):
                                                             f'Ваш текст: `{self.text}`', view=self)
 
 
-@bot.slash_command(name="restart", guild_ids=[1241732478020878469,1148996038363975800, 1214617864863219732])
+@bot.slash_command(name="restart", guild_ids=[1241732478020878469, 1148996038363975800, 1214617864863219732])
 @commands.is_owner()
-async def restart_bot(ctx: discord.Interaction):
+async def restart_bot(ctx: Interaction):
     await ctx.response.send_message("Успешно", ephemeral=True)
     os.system('cls')
     os.system('python.exe C:\\Users\\slend\\OneDrive\\OneDrive\\bot\\remod3Bot.py')
@@ -297,11 +299,11 @@ print("\n")
 tprint("remod3")
 
 
-@bot.slash_command(name='staff_d',description="Список администрации проекта",
-                   guild_ids=[1138204059397005352,1263854530445971671])
+@bot.slash_command(name='staff_d', description="Список администрации проекта",
+                   guild_ids=[1138204059397005352, 1263854530445971671])
 async def _staff_ds(ctx):
     if not ctx.author.guild_permissions.administrator:
-        return 
+        return
     Vlad = 1138210426002362559
     tex = 1219875518178922546
     men = 1258410711483420802
@@ -356,15 +358,16 @@ def save_warnings(data):
 
 
 @bot.command(name='warn')
-async def warn(ctx, target: discord.User = None, duration: str = None, *, reason: str = ''):
+async def warn(ctx, target: User = None, duration: str = None, *, reason: str = ''):
     if ctx.author.guild_permissions.administrator:
         pref = get_prefix(bot, ctx)
         if target is None and ctx.message.reference:
             referenced_message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
             target = referenced_message.author
         if target is None:
-            await ctx.reply(embed=discord.Embed(title="", description=f'Команда "{pref}warn"\nВыдает указанному участнику '
-                                                                      f'вечное или временное предупреждение.'))
+            await ctx.reply(embed=discord.Embed(title="", description=f'Команда "{pref}warn"\n'
+                                                                      f'Выдает указанному участнику вечное или '
+                                                                      f'временное предупреждение.'))
             return
         data = load_warnings()
         user_id = str(target.id)
@@ -411,13 +414,11 @@ async def warn(ctx, target: discord.User = None, duration: str = None, *, reason
 async def unwarn(ctx, case_id: int = None):
     if ctx.author.guild_permissions.administrator:
         if case_id is None:
-            await ctx.reply(embed=discord.Embed(title="Снять предупреждение участнику",
-                                                description='Снимает с участника предупреждение по номеру случая из '
-                                                            'команды ".warns".\n\n'
-                                                            '**Использование**\n'
-                                                            '`.unwarn <номер случая>`\n\n'
-                                                            '**Пример**\n'
-                                                            '`.unwarn 1`\n┗ Снимет предупреждение с номером случая #1.'))
+            await ctx.reply(embed=Embed(title="Снять предупреждение участнику",
+                                        description='Снимает с участника предупреждение по номеру случая из команды '
+                                                    '".warns".\n\n**Использование**\n`.unwarn <номер случая>`\n\n'
+                                                    '**Пример**\n`.unwarn 1`\n┗ Снимет предупреждение с номером случая'
+                                                    ' #1.'))
             return
         data = load_warnings()
         found = False
@@ -428,7 +429,7 @@ async def unwarn(ctx, case_id: int = None):
                     found = True
                     data['total'] -= 1
                     save_warnings(data)
-                    embed = discord.Embed(title='', description=f'Предупреждение `#{case_id}` было снято.', color=0x5a357f)
+                    embed = Embed(title='', description=f'Предупреждение `#{case_id}` было снято.', color=0x5a357f)
                     await ctx.send(embed=embed)
                     break
             if found: break
@@ -451,16 +452,26 @@ OPERATORS = {
 }
 FUNCTIONS = {
     'abs': abs,
-    'max': max,
-    'min': min,
+    'max': max, 'min': min,
     'round': round,
-    'pow': pow,
-    'sqrt': math.sqrt,
+    'pow': pow, '**': pow, '^': pow,
+    'sqrt': math.sqrt, 'isqrt': math.isqrt,
     'log': math.log,
-    'sin': math.sin,
-    'cos': math.cos,
-    'tan': math.tan,
+    'sin': math.sin, 'cos': math.cos, 'tan': math.tan, 'cot': lambda x: 1 / math.tan(math.radians(x)),
+    '!': math.factorial,
     'exp': math.exp,
+    'asin': math.asin, 'acos': math.acos, 'atan': math.atan,
+    'sinh': math.sinh, 'cosh': math.cosh, 'tanh': math.tanh,
+    'deg': math.degrees, 'rad': math.radians,
+    'ceil': math.ceil, 'floor': math.floor,
+    'hypot': math.hypot,
+    'pi': math.pi, 'e': math.e,
+    'comb': math.comb, 'perm': math.perm,
+    'trunc': math.trunc,
+    'gcd': math.gcd,
+    'real': lambda z: z.real, 'imag': lambda z: z.imag,
+    'mean': mean,
+    'median': median
 }
 
 
@@ -488,8 +499,50 @@ def _eval(node):
 
 
 @bot.slash_command(name="calculate", description="Вычисляет математическое выражение")
-async def _calculate(ctx, expression: str):
+async def _calculate(ctx, expression: str = None):
     try:
+        if expression is None:
+            embed = Embed(title="Доступные математические функции",
+                          description="Вот список доступных функций и примеры их использования.", color=0x5a357f)
+            embed.add_field(name="Основные арифметические", value=(
+                "`abs(x)` - модуль числа, пример: `abs(-5) → 5`\n"
+                "`max(a, b, ...)` - максимум, пример: `max(3, 7, 1) → 7`\n"
+                "`min(a, b, ...)` - минимум, пример: `min(3, 7, 1) → 1`\n"
+                "`round(x, n)` - округление до `n` знаков, пример: `round(3.14159, 2) → 3.14`\n"
+                "`pow(a, b)` или `a**b` или `a^b`- возведение в степень, пример: `pow(2, 3) → 8`\n"
+                "`sqrt(x)` - квадратный корень, пример: `sqrt(16) → 4`"), inline=False)
+            embed.add_field(name="Логарифмы и экспоненты", value=(
+                "`log(x, base)` - логарифм числа `x` по основанию `base`, пример: `log(8, 2) → 3`\n"
+                "`exp(x)` - e^x, пример: `exp(1) → 2.71828`"), inline=False)
+            embed.add_field(name="Тригонометрия", value=(
+                "`sin(x)` - синус угла в радианах, пример: `sin(pi/2) → 1`\n"
+                "`cos(x)` - косинус угла, пример: `cos(0) → 1`\n"
+                "`tan(x)` - тангенс угла, пример: `tan(pi/4) → 1`\n"
+                "`cot(x)` - котангенс угла в градусах, пример: `cot(45) → 1`"), inline=False)
+            embed.add_field(name="Углы", value=("`deg(x)` - перевод из радиан в градусы, пример: `deg(pi) → 180`\n"
+                                                "`rad(x)` - перевод из градусов в радианы, пример: `rad(180) → pi`"),
+                            inline=False)
+            embed.add_field(name="Округление", value=("`ceil(x)` - округление вверх, пример: `ceil(2.3) → 3`\n"
+                                                      "`floor(x)` - округление вниз, пример: `floor(2.7) → 2`\n"
+                                                      "`trunc(x)` - усечение дробной части, пример: `trunc(2.7) → 2`"),
+                            inline=False)
+            embed.add_field(name="Специальные значения", value=("`pi` - число π, пример: `pi → 3.14159`\n"
+                                                                "`e` - число e, пример: `e → 2.71828`"), inline=False)
+            embed.add_field(name="Факторизация и комбинаторика",
+                            value=("`!(n)` - факториал числа, пример: `!(5) → 120`\n"
+                                   "`comb(n, k)` - сочетания, пример: `comb(5, 2) → 10`\n"
+                                   "`perm(n, k)` - перестановки, пример: `perm(5, 2) → 20`"), inline=False)
+            embed.add_field(name="Геометрия", value=("`hypot(a, b)` - гипотенуза, пример: `hypot(3, 4) → 5`\n"
+                                                     "`gcd(a, b)` - НОД, пример: `gcd(12, 15) → 3`"), inline=False)
+            embed.add_field(name="Комплексные числа",
+                            value=("`real(z)` - действительная часть, пример: `real(3+4j) → 3`\n"
+                                   "`imag(z)` - мнимая часть, пример: `imag(3+4j) → 4`"), inline=False)
+            embed.add_field(name="Статистика",
+                            value=("`mean(data)` - среднее значение, пример: `mean([1, 2, 3]) -> 2`\n"
+                                   "`median(data)` - медиана, пример: `median([1, 3, 2]) → 2`"),
+                            inline=False)
+            embed.set_footer(text="Используйте функции с правильным синтаксисом и аргументами для успешных расчетов!")
+            await ctx.response.send_message(embed=embed, ephemeral=True)
         result = safe_eval(expression)
         embed = discord.Embed(description=f"Результат выражения `{expression}`", color=0x5a357f)
         embed.add_field(name="Результат", value=f"`{result}`")
@@ -502,6 +555,7 @@ async def _calculate(ctx, expression: str):
 
 @bot.command(name='warns')
 async def warns(ctx, user: discord.User = None):
+    if ctx.author.guild_permissions.administrator:
         data = load_warnings()
         if user is None:
             user_id = str(ctx.author.id)
@@ -519,8 +573,8 @@ async def warns(ctx, user: discord.User = None):
                     issued_at = datetime.fromisoformat(w['issued_at'])
                     expires = datetime.fromisoformat(w['expires']) if w['expires'] else None
                     issuer = w.get('issuer', 'Неизвестен')
-                    expires_text = f'<t:{int(expires.timestamp())}:F> (<t:{int(expires.timestamp())}:R>)' if expires else \
-                        'Никогда'
+                    expires_text = f'<t:{int(expires.timestamp())}:F> (<t:{int(expires.timestamp())}:R>)' if expires \
+                        else 'Никогда'
                     embed.add_field(name=f'',
                                     value=f'`Случай #{warning_id}` **<t:{int(issued_at.timestamp())}> {issuer}**\n'
                                           f'**Причина:** {reason}\n'
@@ -545,9 +599,9 @@ except FileNotFoundError:
     warnings = {}
 
 
-@bot.slash_command(name='warn',description='Выдать выговор модератору',guild_ids=[1263854530445971671])
-async def _warn(ctx, member: discord.Option(discord.Member, description="Кому выдать выговор"),
-                reason: discord.Option(str, description="Причина выговора", required=False)):
+@bot.slash_command(name='warn', description='Выдать выговор модератору', guild_ids=[1263854530445971671])
+async def _warn(ctx, member: Option(Member, description="Кому выдать выговор"),
+                reason: Option(str, description="Причина выговора", required=False)):
     try:
         if ctx.author.guild_permissions.administrator:
             ob_channel = bot.get_channel(1263869130705076305)
@@ -556,7 +610,7 @@ async def _warn(ctx, member: discord.Option(discord.Member, description="Ком�
             else:
                 warnings[member.id]['count'] += 1
                 warnings[member.id]['reasons'].append(reason)
-    
+
             embed = discord.Embed(title='', description=f'{member.mention} выдан выговор.',
                                   color=discord.Color.default())
             embed.add_field(name='Причина', value=reason if reason else 'Не указана', inline=False)
@@ -586,14 +640,17 @@ async def _warn(ctx, member: discord.Option(discord.Member, description="Ком�
                         embed.add_field(name="Снят с должности «Менеджера персонала»", value=f"{member.mention}",
                                         inline=False)
                     elif member.top_role.id == 1263854774156132372:
-                        embed.add_field(name="Снят с должности «Менеджера медиа»", value=f"{member.mention}", inline=False)
+                        embed.add_field(name="Снят с должности «Менеджера медиа»", value=f"{member.mention}",
+                                        inline=False)
                     elif member.top_role.id == 1263854775309570169:
                         embed.add_field(name="Снят с должности «Главы Тех.Поддержки»", value=f"{member.mention}",
                                         inline=False)
                     elif member.top_role.id == 1263854774625898658:
-                        embed.add_field(name="Снят с должности «Команды проекта»", value=f"{member.mention}", inline=False)
+                        embed.add_field(name="Снят с должности «Команды проекта»", value=f"{member.mention}",
+                                        inline=False)
                     elif member.top_role.id == 1263863292254748692:
-                        embed.add_field(name="Снят с должности «Администратора»", value=f"{member.mention}", inline=False)
+                        embed.add_field(name="Снят с должности «Администратора»", value=f"{member.mention}",
+                                        inline=False)
                     elif member.top_role.id == 1263854775900835904:
                         embed.add_field(name="Снят с должности «Куратора Модерации»", value=f"{member.mention}",
                                         inline=False)
@@ -607,17 +664,23 @@ async def _warn(ctx, member: discord.Option(discord.Member, description="Ком�
                     elif member.top_role.id == 1263856989499424818:
                         embed.add_field(name="Снят с должности «Tech Section»", value=f"{member.mention}", inline=False)
                     elif member.top_role.id == 1263856995828760690:
-                        embed.add_field(name="Снят с должности «Method Section»", value=f"{member.mention}", inline=False)
+                        embed.add_field(name="Снят с должности «Method Section»", value=f"{member.mention}",
+                                        inline=False)
                     elif member.top_role.id == 1263856994750697635:
-                        embed.add_field(name="Снят с должности «Forum Section»", value=f"{member.mention}", inline=False)
+                        embed.add_field(name="Снят с должности «Forum Section»", value=f"{member.mention}",
+                                        inline=False)
                     elif member.top_role.id == 1263856995157545043:
-                        embed.add_field(name="Снят с должности «Support Section»", value=f"{member.mention}", inline=False)
+                        embed.add_field(name="Снят с должности «Support Section»", value=f"{member.mention}",
+                                        inline=False)
                     elif member.top_role.id == 1263863513693032459:
-                        embed.add_field(name="Снят с должности «Media Section»", value=f"{member.mention}", inline=False)
+                        embed.add_field(name="Снят с должности «Media Section»", value=f"{member.mention}",
+                                        inline=False)
                     elif member.top_role.id == 1263854784969183303:
-                        embed.add_field(name="Снят с должности «Build Section»", value=f"{member.mention}", inline=False)
+                        embed.add_field(name="Снят с должности «Build Section»", value=f"{member.mention}",
+                                        inline=False)
                     elif member.top_role.id == 1263856988937261076:
-                        embed.add_field(name="Снят с должности «Event Section»", value=f"{member.mention}", inline=False)
+                        embed.add_field(name="Снят с должности «Event Section»", value=f"{member.mention}",
+                                        inline=False)
                     elif member.top_role.id == 1263867286901751818:
                         embed.add_field(name="Снят с должности «GP Section»", value=f"{member.mention}", inline=False)
                     elif member.top_role.id == 1263856996692656140:
@@ -635,12 +698,14 @@ async def _warn(ctx, member: discord.Option(discord.Member, description="Ком�
                     roles_to_remove = [role for role in member.roles if
                                        role.name in ["Менеджер персонала", "Менеджер медиа",
                                                      "Глава Тех.Поддержки", "Команда Проекта", "Администратор",
-                                                     "Куратор модерации", "Мл.Куратор Модерации", "ГС Секции", "ЗГС Секции",
+                                                     "Куратор модерации", "Мл.Куратор Модерации", "ГС Секции",
+                                                     "ЗГС Секции",
                                                      "Teaching Section", "Method Section", "Forum Section",
                                                      "Support Section",
                                                      "Media Section", "Build Section", "Event Section", "GP Section",
                                                      "Главный Модератор", "Старший Модератор", "Модератор", "Хелпер",
-                                                     "Выговор 2/3", "Выговор 1/3", "Устный 2/3", "Устный 1/3", "1st Group",
+                                                     "Выговор 2/3", "Выговор 1/3", "Устный 2/3", "Устный 1/3",
+                                                     "1st Group",
                                                      "2nd Group", "3rd Group"]]
                     await member.remove_roles(*roles_to_remove)
         with open('json/warnings.json', 'w') as file:
@@ -650,11 +715,11 @@ async def _warn(ctx, member: discord.Option(discord.Member, description="Ком�
               f"`{ctx.author.id}`\nКоманда: /warn")
 
 
-@bot.slash_command(name='unwarn',description='Снять последний выговор у модератора',guild_ids=[1263854530445971671])
+@bot.slash_command(name='unwarn', description='Снять последний выговор у модератора', guild_ids=[1263854530445971671])
 async def unwarn(ctx, user: discord.Member):
     try:
         if not ctx.author.guild_permissions.administrator:
-            return 
+            return
         if user.id in warnings and warnings[user.id]['count'] > 0:
             warnings[user.id]['count'] -= 1
             last_reason = warnings[user.id]['reasons'].pop()
@@ -675,11 +740,11 @@ async def unwarn(ctx, user: discord.Member):
               f"`{ctx.author.id}`\nКоманда: /unwarn")
 
 
-@bot.slash_command(name='warns',description='Выговоры модератора',guild_ids=[1263854530445971671])
+@bot.slash_command(name='warns', description='Выговоры модератора', guild_ids=[1263854530445971671])
 async def _warns(ctx, user: discord.Member):
     try:
         if not ctx.author.guild_permissions.administrator:
-            return 
+            return
         if user.id in warnings:
             embed = discord.Embed(title=f'', description=f'Выговоры у {user.name}',
                                   color=discord.Color.default())
@@ -697,11 +762,11 @@ async def _warns(ctx, user: discord.Member):
               f"`{ctx.author.id}`\nКоманда: /warns")
 
 
-@bot.slash_command(name='warnlist',description='Список пользователей с выговорами',guild_ids=[1263854530445971671])
+@bot.slash_command(name='warnlist', description='Список пользователей с выговорами', guild_ids=[1263854530445971671])
 async def warnlist(ctx):
     try:
         if not ctx.author.guild_permissions.administrator:
-            return 
+            return
         if warnings:
             embed = discord.Embed(title='Список пользователей с выговорами', color=discord.Color.default())
             for user_id, data in warnings.items():
@@ -835,7 +900,7 @@ async def clear_messages(ctx: discord.ApplicationContext,
 
 
 @bot.slash_command(name="kick", description="Кикнуть пользователя")
-async def _kick(ctx,user: discord.Option(discord.Member, description="Участник сервера, которого нужно кикнуть"),
+async def _kick(ctx, user: discord.Option(discord.Member, description="Участник сервера, которого нужно кикнуть"),
                 причина: discord.Option(str, description="Причина кика", default=False)):
     if not ctx.author.guild_permissions.kick_members:
         return
@@ -882,7 +947,8 @@ async def on_command_error(ctx, error):
 @roles.command(name="color", description="Изменить цвет роли")
 async def _change_role_color(ctx, роль: discord.Option(discord.Role, description="Какой роли изменить цвет"),
                              цвет: discord.Option(
-                                 discord.Color,description="Цветовой код в формате HEX (например #fe3a3 или 0xfe3a3)")):
+                                 discord.Color,
+                                 description="Цветовой код в формате HEX (например #fe3a3 или 0xfe3a3)")):
     try:
         if ctx.author.guild_permissions.manage_roles:
             if ctx.guild is None:
@@ -911,7 +977,8 @@ async def _change_role_color(ctx, роль: discord.Option(discord.Role, descrip
             else:
                 await ctx.response.send_message(f"Роль с именем «{роль.name}» не найдена", ephemeral=True)
         else:
-            await ctx.respond(embed=Embed(description="У вас нет прав управлять ролями!",color=0x7b68ee),ephemeral=True)
+            await ctx.respond(embed=Embed(description="У вас нет прав управлять ролями!", color=0x7b68ee),
+                              ephemeral=True)
     except Exception as e:
         print(f"Произошла ошибка:\n{e}\nСервер: {ctx.guild.name}\nПользователь: {ctx.author.mention} | "
               f"`{ctx.author.id}`\nКоманда: rcolor")
@@ -1019,7 +1086,7 @@ async def _nick(ctx, user: discord.Option(discord.Member, "Кому измени
             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
             return
         if not ctx.author.guild_permissions.manage_nicknames:
-            return 
+            return
         if ctx.author.top_role > user.top_role:
             embed = Embed(title="Пользователю изменён ник", color=0x7b68ee)
             embed.add_field(name="Автор", value=ctx.author.mention, inline=False)
@@ -1270,7 +1337,7 @@ async def _unreg(ctx, member: discord.Option(discord.Member, description="Ког
     try:
         channel = bot.get_channel(1263869130705076305)
         embed = Embed(title="", description=f"Новости персонала HightMine за "
-                                            f"{date.today().strftime('%d.%m.%Y')}\n",color=Color.default())
+                                            f"{date.today().strftime('%d.%m.%Y')}\n", color=Color.default())
         sections = {
             1263856989499424818: "Tech Section", 1264230599733018656: "Recruiting Section",
             1263856995828760690: "Method Section", 1264230586013323366: "Teaching Section",
@@ -1310,9 +1377,10 @@ async def createrole(ctx, роль: discord.Option(str, description="Назва�
             embed.set_footer(text=f"role id: {created_role.id}")
             await send_log(ctx.guild.id, embed=embed)
         else:
-            await ctx.respond(embed=Embed(title="",description="У вас недостаточно прав",color=0x7b68ee),ephemeral=True)
+            await ctx.respond(embed=Embed(title="", description="У вас недостаточно прав", color=0x7b68ee),
+                              ephemeral=True)
     else:
-        await ctx.respond(embed=Embed(title="",description="Для использования этой команды добавьте меня на сервер!",
+        await ctx.respond(embed=Embed(title="", description="Для использования этой команды добавьте меня на сервер!",
                                       color=Color.default()))
 
 
@@ -2029,7 +2097,7 @@ async def _delperm(ctx, роль: discord.Option(discord.Role, description="У �
             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
             return
         if not ctx.author.guild_permissions.administrator:
-            return 
+            return
         if ctx.author.top_role > роль:
             permissions = роль.permissions
             permissions.update(**{perm: False})
@@ -2049,7 +2117,7 @@ async def _setperm(ctx, роль: discord.Option(discord.Role, description="Ка
             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
             return
         if not ctx.author.guild_permissions.administrator:
-            return 
+            return
         if ctx.author.top_role > роль:
             permissions = роль.permissions
             permissions.update(**{perm: True})
@@ -2770,7 +2838,7 @@ async def _staff_m(ctx, channel: discord.Option(discord.TextChannel | discord.DM
                                                 description="Куда отправить", default=None),
                    message: Option(str, "Дополнительное сообщение (перед Embed)", default=None),
                    title: Option(str, description="Название заголовка", default=None),
-                   description: Option(str,description="Описание Embed",default=None),
+                   description: Option(str, description="Описание Embed", default=None),
                    field_name: Option(str, description="Заголовок поля", default=None),
                    field_desc: Option(str, description="Описание поля", default=None),
                    thumbnail: Option(str, description="Ссылка на фото", default=None),
@@ -2835,7 +2903,7 @@ async def _staff_m(ctx, channel: discord.Option(discord.TextChannel | discord.DM
         footer = footer.replace("\\n", "\n")
 
     def process_placeholders(text: str) -> str:
-        if not text:return text
+        if not text: return text
         pattern = r"%([a-zA-Z0-9_]+)\.([a-zA-Z0-9_]+)\((.*?)\)%"
 
         def replace_placeholder(match):
@@ -2852,28 +2920,38 @@ async def _staff_m(ctx, channel: discord.Option(discord.TextChannel | discord.DM
                         value = (datetime.now() + time_delta).timestamp()
                     else:
                         dt_method = getattr(datetime, method, None)
-                        if dt_method:value = dt_method(*eval(format_str)) if format_str else dt_method()
-                        else:value = f"[Ошибка: неизвестный метод '{obj_type}.{method}']"
+                        if dt_method:
+                            value = dt_method(*eval(format_str)) if format_str else dt_method()
+                        else:
+                            value = f"[Ошибка: неизвестный метод '{obj_type}.{method}']"
                 elif obj_type == "date":
                     if method == "today":
                         format_str = format_str if format_str else "%d.%m.%Y"
                         value = date.today().strftime(format_str)
                     else:
                         date_method = getattr(date, method, None)
-                        if date_method:value = date_method(*eval(format_str)) if format_str else date_method()
-                        else:value = f"[Ошибка: неизвестный метод '{obj_type}.{method}']"
+                        if date_method:
+                            value = date_method(*eval(format_str)) if format_str else date_method()
+                        else:
+                            value = f"[Ошибка: неизвестный метод '{obj_type}.{method}']"
                 elif obj_type == "time":
                     if method == "now":
                         format_str = format_str if format_str else "%H:%M:%S"
                         value = datetime.now().strftime(format_str).split()[1]
                     else:
                         time_method = getattr(time, method, None)
-                        if time_method:value = time_method(*eval(format_str)) if format_str else time_method()
-                        else:value = f"[Ошибка: неизвестный метод '{obj_type}.{method}']"
-                else:value = f"[Ошибка: неизвестный объект '{obj_type}']"
+                        if time_method:
+                            value = time_method(*eval(format_str)) if format_str else time_method()
+                        else:
+                            value = f"[Ошибка: неизвестный метод '{obj_type}.{method}']"
+                else:
+                    value = f"[Ошибка: неизвестный объект '{obj_type}']"
                 return str(value)
-            except Exception as e:return f"[Ошибка: {e}]"
+            except Exception as e:
+                return f"[Ошибка: {e}]"
+
         return re.sub(pattern, replace_placeholder, text)
+
     message = process_placeholders(message)
     title = process_placeholders(title)
     description = process_placeholders(description)
@@ -3526,7 +3604,7 @@ async def giveaway(ctx, seconds, prize: discord.Option(str, description="При�
             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
             return
         if not ctx.author.guild_permissions.administrator:
-            return 
+            return
         seconds = giveaway_parse_time(seconds)
         formatted_time = giveaway_format_time(seconds)
         embed = discord.Embed(title="🎉 Розыгрыш!", description=description or "Описание отсутствует", color=0x42f57b)
@@ -3648,7 +3726,7 @@ async def log(ctx, channel: discord.TextChannel | discord.VoiceChannel | discord
         save_log_channel(ctx.guild.id, channel.id)
         await ctx.respond(f"Канал для логов установлен: <#{channel.id}>")
     else:
-        await ctx.respond(embed=Embed(description="У вас нет прав для использования этой команды!",color=0x7b68ee),
+        await ctx.respond(embed=Embed(description="У вас нет прав для использования этой команды!", color=0x7b68ee),
                           ephemeral=True)
         return
 
@@ -3764,8 +3842,8 @@ async def ban(ctx, target, days: int = 0, reason: str = ""):
             unban_time = (datetime.now() + timedelta(days=days)).isoformat()
             ban_data[str(member.id)] = unban_time
             save_ban_data(ban_data)
-        ban = discord.Embed(title="",
-                            description=f"{member.mention} был забанен {'на ' + str(days) + ' дней' if days > 0 else ''}.")
+        ban = Embed(title="",
+                    description=f"{member.mention} был забанен {'на ' + str(days) + ' дней' if days > 0 else ''}.")
         await ctx.reply(embed=ban)
 
 
@@ -4014,7 +4092,7 @@ async def find_presence(ctx: discord.Interaction, text: str):
 bot.add_application_command(roles)
 bot.add_application_command(mod_com)
 bot.run(data_as['token'])
-#match input("Connect RPC? >> "):
+# match input("Connect RPC? >> "):
 #    case 'y' | 'Y' | '+' | 'да' | 'Да' | 'Yes' | 'yes':
 #        rpc = Presence("1206275841395392552")
 #        rpc.connect()
@@ -4028,16 +4106,16 @@ bot.run(data_as['token'])
 #                                    "=8&integration_type=0&scope=bot+applications.commands"}])
 #        bot.run(data_as['token'])
 
-        # async def start_bot():
-        #     await bot.start(data_as['token'])
-        #
-        # if __name__ == "__main__":
-        #     asyncio.run(start_bot())
+# async def start_bot():
+#     await bot.start(data_as['token'])
+#
+# if __name__ == "__main__":
+#     asyncio.run(start_bot())
 #    case 'n' | 'N' | '-' | 'нет' | 'Нет' | 'no' | 'No':
-        # bot.run("MTIwNjI3NTg0MTM5NTM5MjU1Mg.GHQNw8.OXoM0SCc-U0ZbMg1pOfDqDIxEhjYV15olb9D0Y")
+# bot.run("MTIwNjI3NTg0MTM5NTM5MjU1Mg.GHQNw8.OXoM0SCc-U0ZbMg1pOfDqDIxEhjYV15olb9D0Y")
 #        bot.run(data_as['token'])
-        # async def start_bot():
-        #     await bot.start(data_as['token'])
-        #
-        # if __name__ == "__main__":
-        #     asyncio.run(start_bot())
+# async def start_bot():
+#     await bot.start(data_as['token'])
+#
+# if __name__ == "__main__":
+#     asyncio.run(start_bot())
