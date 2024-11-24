@@ -7,7 +7,7 @@ import discord
 from discord.utils import get
 from discord.ui import (View, Select, Button, Item, Modal, view)
 from discord.ext import tasks, commands
-from discord import (ui, SelectMenu, SelectOption, Interaction, default_permissions, guild_only, Option, Color, Embed,
+from discord import (ui, SelectMenu, SelectOption, Interaction, guild_only, Option, Color, Embed,
                      ButtonStyle, InputTextStyle, PartialEmoji, InputText, Colour)
 import discord.ext.commands.errors as error
 from discord.commands import permissions
