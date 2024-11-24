@@ -15,7 +15,7 @@ from discord.abc import *
 import asyncio, ast, aiohttp
 from asyncio import sleep
 import hashlib
-#from pypresence import Presence
+from pypresence import Presence
 import math
 import io
 import json
@@ -46,16 +46,16 @@ bot.remove_command("help")
 
 
 @bot.command(name="prefix")
-@default_permissions(administrator=True)
 async def set_prefix(ctx, new_prefix=None):
-    if new_prefix is None:
-        await ctx.reply(f"Текущий префикс: {get_prefix(bot, ctx)}")
-        return
-    guild_id = str(ctx.guild.id)
-    prefixes[guild_id] = new_prefix
-    with open("json/prefixes.json", "w") as f:
-        json.dump(prefixes, f)
-    await ctx.send(f"Префикс изменён на: {new_prefix}")
+    if ctx.author.guild_permissions.administrator:
+        if new_prefix is None:
+            await ctx.reply(f"Текущий префикс: {get_prefix(bot, ctx)}")
+            return
+        guild_id = str(ctx.guild.id)
+        prefixes[guild_id] = new_prefix
+        with open("json/prefixes.json", "w") as f:
+            json.dump(prefixes, f)
+        await ctx.send(f"Префикс изменён на: {new_prefix}")
 
 
 premium_guild = [1241732478020878469]
@@ -167,19 +167,19 @@ def get_message_id(channel_id):
 
 
 @bot.slash_command(name="send_stat", description='Чат для отправки статистики сервера')
-@default_permissions(manage_guild=True)
 async def send_stat(ctx, channel: discord.abc.GuildChannel):
     try:
-        channel_id = channel.id
-        embed = await get_server_info(ctx.guild)
-        message = await channel.send(embed=embed)
-        save_message_id(channel_id, message.id)
-        await ctx.response.send_message(f"Статистика будет отправляться каждые 5 минут в канал {channel.mention}")
-        embed_log = Embed(title="Канал статистики настроен", color=0x7b68ee)
-        embed_log.add_field(name="Автор", value=ctx.author.mention, inline=True)
-        embed_log.add_field(name="Канал", value=channel.mention)
-        await send_log(ctx.guild.id, embed=embed_log)
-        print(f"send_stat: {ctx.command.id}")
+        if ctx.author.guild_permissions.manage_roles:
+            channel_id = channel.id
+            embed = await get_server_info(ctx.guild)
+            message = await channel.send(embed=embed)
+            save_message_id(channel_id, message.id)
+            await ctx.response.send_message(f"Статистика будет отправляться каждые 5 минут в канал {channel.mention}")
+            embed_log = Embed(title="Канал статистики настроен", color=0x7b68ee)
+            embed_log.add_field(name="Автор", value=ctx.author.mention, inline=True)
+            embed_log.add_field(name="Канал", value=channel.mention)
+            await send_log(ctx.guild.id, embed=embed_log)
+            print(f"send_stat: {ctx.command.id}")
     except Exception as e:
         print(f"Произошла ошибка:\n{e}\nСервер: {ctx.guild.name}\nПользователь: {ctx.author.mention} "
               f"| {ctx.author.id}\nКоманда: send_stat")
@@ -299,8 +299,9 @@ tprint("remod3")
 
 @bot.slash_command(name='staff_d',description="Список администрации проекта",
                    guild_ids=[1138204059397005352,1263854530445971671])
-@default_permissions(administrator=True)
 async def _staff_ds(ctx):
+    if not ctx.author.guild_permissions.administrator:
+        return 
     Vlad = 1138210426002362559
     tex = 1219875518178922546
     men = 1258410711483420802
@@ -355,83 +356,83 @@ def save_warnings(data):
 
 
 @bot.command(name='warn')
-@permissions.default_permissions(administrator=True)
 async def warn(ctx, target: discord.User = None, duration: str = None, *, reason: str = ''):
-    pref = get_prefix(bot, ctx)
-    if target is None and ctx.message.reference:
-        referenced_message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-        target = referenced_message.author
-    if target is None:
-        await ctx.reply(embed=discord.Embed(title="", description=f'Команда "{pref}warn"\nВыдает указанному участнику '
-                                                                  f'вечное или временное предупреждение.'))
-        return
-    data = load_warnings()
-    user_id = str(target.id)
-    if user_id not in data['user_warns']:
-        data['user_warns'][user_id] = []
-    if duration:
-        if duration.endswith('d'):
-            expiry_time = datetime.now() + timedelta(days=int(duration[:-1]))
-        elif duration.endswith('h'):
-            expiry_time = datetime.now() + timedelta(hours=int(duration[:-1]))
-        elif duration.endswith('m'):
-            expiry_time = datetime.now() + timedelta(minutes=int(duration[:-1]))
-        else:
-            await ctx.send('Неверный формат времени. Используйте дни (d), часы (h) или минуты (m).')
+    if ctx.author.guild_permissions.administrator:
+        pref = get_prefix(bot, ctx)
+        if target is None and ctx.message.reference:
+            referenced_message = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+            target = referenced_message.author
+        if target is None:
+            await ctx.reply(embed=discord.Embed(title="", description=f'Команда "{pref}warn"\nВыдает указанному участнику '
+                                                                      f'вечное или временное предупреждение.'))
             return
-        expiry_time_str = expiry_time.isoformat()
-    else:
-        expiry_time_str = None
-    warning_id = len(data['user_warns'][user_id]) + 1
-    total_warning_id = data['total'] + 1
-    issuer = ctx.author.name
-    data['user_warns'][user_id].append({
-        'id': warning_id,
-        'reason': reason,
-        'expires': expiry_time_str,
-        'issued_at': datetime.now().isoformat(),
-        'issuer': issuer
-    })
-    data['total'] = total_warning_id
-    save_warnings(data)
-    embed = discord.Embed(title='', description=f'Участник {target.mention} получил предупреждение `#{warning_id}` '
-                                                f'`(случай #{total_warning_id})`.', color=0x5a357f)
-    embed.add_field(name='Причина', value=reason if reason else 'Не указана')
-    if expiry_time_str:
-        embed.add_field(name='Истекает', value=f'<t:{int(expiry_time.timestamp())}:F> '
-                                               f'(<t:{int(expiry_time.timestamp())}:R>)')
-    else:
-        embed.add_field(name='Истекает', value='Никогда (предупреждение выдано навсегда)')
-    await ctx.send(embed=embed)
-    print(f"caps: {ctx.command.id}")
+        data = load_warnings()
+        user_id = str(target.id)
+        if user_id not in data['user_warns']:
+            data['user_warns'][user_id] = []
+        if duration:
+            if duration.endswith('d'):
+                expiry_time = datetime.now() + timedelta(days=int(duration[:-1]))
+            elif duration.endswith('h'):
+                expiry_time = datetime.now() + timedelta(hours=int(duration[:-1]))
+            elif duration.endswith('m'):
+                expiry_time = datetime.now() + timedelta(minutes=int(duration[:-1]))
+            else:
+                await ctx.send('Неверный формат времени. Используйте дни (d), часы (h) или минуты (m).')
+                return
+            expiry_time_str = expiry_time.isoformat()
+        else:
+            expiry_time_str = None
+        warning_id = len(data['user_warns'][user_id]) + 1
+        total_warning_id = data['total'] + 1
+        issuer = ctx.author.name
+        data['user_warns'][user_id].append({
+            'id': warning_id,
+            'reason': reason,
+            'expires': expiry_time_str,
+            'issued_at': datetime.now().isoformat(),
+            'issuer': issuer
+        })
+        data['total'] = total_warning_id
+        save_warnings(data)
+        embed = discord.Embed(title='', description=f'Участник {target.mention} получил предупреждение `#{warning_id}` '
+                                                    f'`(случай #{total_warning_id})`.', color=0x5a357f)
+        embed.add_field(name='Причина', value=reason if reason else 'Не указана')
+        if expiry_time_str:
+            embed.add_field(name='Истекает', value=f'<t:{int(expiry_time.timestamp())}:F> '
+                                                   f'(<t:{int(expiry_time.timestamp())}:R>)')
+        else:
+            embed.add_field(name='Истекает', value='Никогда (предупреждение выдано навсегда)')
+        await ctx.send(embed=embed)
+        print(f"caps: {ctx.command.id}")
 
 
 @bot.command(name='unwarn')
-@default_permissions(administrator=True)
 async def unwarn(ctx, case_id: int = None):
-    if case_id is None:
-        await ctx.reply(embed=discord.Embed(title="Снять предупреждение участнику",
-                                            description='Снимает с участника предупреждение по номеру случая из '
-                                                        'команды ".warns".\n\n'
-                                                        '**Использование**\n'
-                                                        '`.unwarn <номер случая>`\n\n'
-                                                        '**Пример**\n'
-                                                        '`.unwarn 1`\n┗ Снимет предупреждение с номером случая #1.'))
-        return
-    data = load_warnings()
-    found = False
-    for user_id, warnings in data['user_warns'].items():
-        for warning in warnings:
-            if warning.get('id') == case_id:
-                warnings.remove(warning)
-                found = True
-                data['total'] -= 1
-                save_warnings(data)
-                embed = discord.Embed(title='', description=f'Предупреждение `#{case_id}` было снято.', color=0x5a357f)
-                await ctx.send(embed=embed)
-                break
-        if found: break
-    if not found: await ctx.send(f'Предупреждение с общим случаем `#{case_id}` не найдено.')
+    if ctx.author.guild_permissions.administrator:
+        if case_id is None:
+            await ctx.reply(embed=discord.Embed(title="Снять предупреждение участнику",
+                                                description='Снимает с участника предупреждение по номеру случая из '
+                                                            'команды ".warns".\n\n'
+                                                            '**Использование**\n'
+                                                            '`.unwarn <номер случая>`\n\n'
+                                                            '**Пример**\n'
+                                                            '`.unwarn 1`\n┗ Снимет предупреждение с номером случая #1.'))
+            return
+        data = load_warnings()
+        found = False
+        for user_id, warnings in data['user_warns'].items():
+            for warning in warnings:
+                if warning.get('id') == case_id:
+                    warnings.remove(warning)
+                    found = True
+                    data['total'] -= 1
+                    save_warnings(data)
+                    embed = discord.Embed(title='', description=f'Предупреждение `#{case_id}` было снято.', color=0x5a357f)
+                    await ctx.send(embed=embed)
+                    break
+            if found: break
+        if not found: await ctx.send(f'Предупреждение с общим случаем `#{case_id}` не найдено.')
 
 
 OPERATORS = {
@@ -500,42 +501,41 @@ async def _calculate(ctx, expression: str):
 
 
 @bot.command(name='warns')
-@default_permissions(administrator=True)
 async def warns(ctx, user: discord.User = None):
-    data = load_warnings()
-    if user is None:
-        user_id = str(ctx.author.id)
-        user_mention = ctx.author.name
-    else:
-        user_id = str(user.id)
-        user_mention = user.name
-    if user_id in data['user_warns']:
-        user_warnings = data['user_warns'][user_id]
-        embed = discord.Embed(title=f'Предупреждения участника {user_mention}', color=0x5a357f)
-        if user_warnings:
-            for w in user_warnings:
-                warning_id = w['id']
-                reason = w['reason']
-                issued_at = datetime.fromisoformat(w['issued_at'])
-                expires = datetime.fromisoformat(w['expires']) if w['expires'] else None
-                issuer = w.get('issuer', 'Неизвестен')
-                expires_text = f'<t:{int(expires.timestamp())}:F> (<t:{int(expires.timestamp())}:R>)' if expires else \
-                    'Никогда'
-                embed.add_field(name=f'',
-                                value=f'`Случай #{warning_id}` **<t:{int(issued_at.timestamp())}> {issuer}**\n'
-                                      f'**Причина:** {reason}\n'
-                                      f'**Действует до:** {expires_text}',
-                                inline=False)
-                embed.set_footer(text=f"Запросил {ctx.author.name}")
-            await ctx.send(embed=embed)
+        data = load_warnings()
+        if user is None:
+            user_id = str(ctx.author.id)
+            user_mention = ctx.author.name
         else:
-            embed.description = f'У участника {user_mention} нет предупреждений.'
+            user_id = str(user.id)
+            user_mention = user.name
+        if user_id in data['user_warns']:
+            user_warnings = data['user_warns'][user_id]
+            embed = discord.Embed(title=f'Предупреждения участника {user_mention}', color=0x5a357f)
+            if user_warnings:
+                for w in user_warnings:
+                    warning_id = w['id']
+                    reason = w['reason']
+                    issued_at = datetime.fromisoformat(w['issued_at'])
+                    expires = datetime.fromisoformat(w['expires']) if w['expires'] else None
+                    issuer = w.get('issuer', 'Неизвестен')
+                    expires_text = f'<t:{int(expires.timestamp())}:F> (<t:{int(expires.timestamp())}:R>)' if expires else \
+                        'Никогда'
+                    embed.add_field(name=f'',
+                                    value=f'`Случай #{warning_id}` **<t:{int(issued_at.timestamp())}> {issuer}**\n'
+                                          f'**Причина:** {reason}\n'
+                                          f'**Действует до:** {expires_text}',
+                                    inline=False)
+                    embed.set_footer(text=f"Запросил {ctx.author.name}")
+                await ctx.send(embed=embed)
+            else:
+                embed.description = f'У участника {user_mention} нет предупреждений.'
+                await ctx.send(embed=embed)
+        else:
+            embed = discord.Embed(title='',
+                                  description=f'У {user_mention} нет предупреждений.',
+                                  color=0x5a357f)
             await ctx.send(embed=embed)
-    else:
-        embed = discord.Embed(title='',
-                              description=f'У {user_mention} нет предупреждений.',
-                              color=0x5a357f)
-        await ctx.send(embed=embed)
 
 
 try:
@@ -546,103 +546,103 @@ except FileNotFoundError:
 
 
 @bot.slash_command(name='warn',description='Выдать выговор модератору',guild_ids=[1263854530445971671])
-@default_permissions(administrator=True)
 async def _warn(ctx, member: discord.Option(discord.Member, description="Кому выдать выговор"),
                 reason: discord.Option(str, description="Причина выговора", required=False)):
     try:
-        ob_channel = bot.get_channel(1263869130705076305)
-        if member.id not in warnings:
-            warnings[member.id] = {'count': 1, 'reasons': [reason]}
-        else:
-            warnings[member.id]['count'] += 1
-            warnings[member.id]['reasons'].append(reason)
-
-        embed = discord.Embed(title='', description=f'{member.mention} выдан выговор.',
-                              color=discord.Color.default())
-        embed.add_field(name='Причина', value=reason if reason else 'Не указана', inline=False)
-        embed.add_field(name='Количество выговоров', value=warnings[member.id]['count'], inline=False)
-        await ob_channel.send(embed=embed)
-        await ctx.response.send_message("+", ephemeral=True)
-        guild = ctx.guild
-        role1 = "Выговор 1/3"
-        role2 = "Выговор 2/3"
-        xz = discord.utils.get(guild.roles, name=role1)
-        xz2 = discord.utils.get(guild.roles, name=role2)
-        if warnings[member.id]['count'] == 1:
-            await member.add_roles(xz)
-        elif warnings[member.id]['count'] == 2:
-            await member.add_roles(xz2)
-            await member.remove_roles(xz)
-        elif warnings[member.id]['count'] == 3:
-            warnings[member.id]['count'] -= 3
-            member = ctx.guild.get_member(member.id)
-            if member:
-                embed = discord.Embed(title="", description=f"Новости персонала HightMine за {date.today()}\n",
-                                      color=discord.Color.default())
-                if member.top_role.id == 1263854684787970122:
-                    embed.add_field(name="Снят с должности «Руководителя проекта»", value=f"{member.mention}",
-                                    inline=False)
-                elif member.top_role.id == 1263854773023543428:
-                    embed.add_field(name="Снят с должности «Менеджера персонала»", value=f"{member.mention}",
-                                    inline=False)
-                elif member.top_role.id == 1263854774156132372:
-                    embed.add_field(name="Снят с должности «Менеджера медиа»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263854775309570169:
-                    embed.add_field(name="Снят с должности «Главы Тех.Поддержки»", value=f"{member.mention}",
-                                    inline=False)
-                elif member.top_role.id == 1263854774625898658:
-                    embed.add_field(name="Снят с должности «Команды проекта»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263863292254748692:
-                    embed.add_field(name="Снят с должности «Администратора»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263854775900835904:
-                    embed.add_field(name="Снят с должности «Куратора Модерации»", value=f"{member.mention}",
-                                    inline=False)
-                elif member.top_role.id == 1263854783639326794:
-                    embed.add_field(name="Снят с должности «Мл.Куратора Модерации»", value=f"{member.mention}",
-                                    inline=False)
-                elif member.top_role.id == 1263867829623460042:
-                    embed.add_field(name="Снят с должности «ГС Секции»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263867759524188161:
-                    embed.add_field(name="Снят с должности «ЗГС Секции»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263856989499424818:
-                    embed.add_field(name="Снят с должности «Tech Section»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263856995828760690:
-                    embed.add_field(name="Снят с должности «Method Section»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263856994750697635:
-                    embed.add_field(name="Снят с должности «Forum Section»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263856995157545043:
-                    embed.add_field(name="Снят с должности «Support Section»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263863513693032459:
-                    embed.add_field(name="Снят с должности «Media Section»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263854784969183303:
-                    embed.add_field(name="Снят с должности «Build Section»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263856988937261076:
-                    embed.add_field(name="Снят с должности «Event Section»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263867286901751818:
-                    embed.add_field(name="Снят с должности «GP Section»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263856996692656140:
-                    embed.add_field(name="Снят с должности «Главного Модератора»", value=f"{member.mention}",
-                                    inline=False)
-                elif member.top_role.id == 1263856996965159002:
-                    embed.add_field(name="Снят с должности «Старшего Модератора»", value=f"{member.mention}",
-                                    inline=False)
-                elif member.top_role.id == 1263856997737037904:
-                    embed.add_field(name="Снят с должности «Модератора»", value=f"{member.mention}", inline=False)
-                elif member.top_role.id == 1263856998005477467:
-                    embed.add_field(name="Снят с должности «Хелпера»", value=f"{member.mention}", inline=False)
-                embed.add_field(name="", value="причина: 3/3 выговоров.")
-                await ob_channel.send(embed=embed)
-                roles_to_remove = [role for role in member.roles if
-                                   role.name in ["Менеджер персонала", "Менеджер медиа",
-                                                 "Глава Тех.Поддержки", "Команда Проекта", "Администратор",
-                                                 "Куратор модерации", "Мл.Куратор Модерации", "ГС Секции", "ЗГС Секции",
-                                                 "Teaching Section", "Method Section", "Forum Section",
-                                                 "Support Section",
-                                                 "Media Section", "Build Section", "Event Section", "GP Section",
-                                                 "Главный Модератор", "Старший Модератор", "Модератор", "Хелпер",
-                                                 "Выговор 2/3", "Выговор 1/3", "Устный 2/3", "Устный 1/3", "1st Group",
-                                                 "2nd Group", "3rd Group"]]
-                await member.remove_roles(*roles_to_remove)
+        if ctx.author.guild_permissions.administrator:
+            ob_channel = bot.get_channel(1263869130705076305)
+            if member.id not in warnings:
+                warnings[member.id] = {'count': 1, 'reasons': [reason]}
+            else:
+                warnings[member.id]['count'] += 1
+                warnings[member.id]['reasons'].append(reason)
+    
+            embed = discord.Embed(title='', description=f'{member.mention} выдан выговор.',
+                                  color=discord.Color.default())
+            embed.add_field(name='Причина', value=reason if reason else 'Не указана', inline=False)
+            embed.add_field(name='Количество выговоров', value=warnings[member.id]['count'], inline=False)
+            await ob_channel.send(embed=embed)
+            await ctx.response.send_message("+", ephemeral=True)
+            guild = ctx.guild
+            role1 = "Выговор 1/3"
+            role2 = "Выговор 2/3"
+            xz = discord.utils.get(guild.roles, name=role1)
+            xz2 = discord.utils.get(guild.roles, name=role2)
+            if warnings[member.id]['count'] == 1:
+                await member.add_roles(xz)
+            elif warnings[member.id]['count'] == 2:
+                await member.add_roles(xz2)
+                await member.remove_roles(xz)
+            elif warnings[member.id]['count'] == 3:
+                warnings[member.id]['count'] -= 3
+                member = ctx.guild.get_member(member.id)
+                if member:
+                    embed = discord.Embed(title="", description=f"Новости персонала HightMine за {date.today()}\n",
+                                          color=discord.Color.default())
+                    if member.top_role.id == 1263854684787970122:
+                        embed.add_field(name="Снят с должности «Руководителя проекта»", value=f"{member.mention}",
+                                        inline=False)
+                    elif member.top_role.id == 1263854773023543428:
+                        embed.add_field(name="Снят с должности «Менеджера персонала»", value=f"{member.mention}",
+                                        inline=False)
+                    elif member.top_role.id == 1263854774156132372:
+                        embed.add_field(name="Снят с должности «Менеджера медиа»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263854775309570169:
+                        embed.add_field(name="Снят с должности «Главы Тех.Поддержки»", value=f"{member.mention}",
+                                        inline=False)
+                    elif member.top_role.id == 1263854774625898658:
+                        embed.add_field(name="Снят с должности «Команды проекта»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263863292254748692:
+                        embed.add_field(name="Снят с должности «Администратора»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263854775900835904:
+                        embed.add_field(name="Снят с должности «Куратора Модерации»", value=f"{member.mention}",
+                                        inline=False)
+                    elif member.top_role.id == 1263854783639326794:
+                        embed.add_field(name="Снят с должности «Мл.Куратора Модерации»", value=f"{member.mention}",
+                                        inline=False)
+                    elif member.top_role.id == 1263867829623460042:
+                        embed.add_field(name="Снят с должности «ГС Секции»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263867759524188161:
+                        embed.add_field(name="Снят с должности «ЗГС Секции»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263856989499424818:
+                        embed.add_field(name="Снят с должности «Tech Section»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263856995828760690:
+                        embed.add_field(name="Снят с должности «Method Section»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263856994750697635:
+                        embed.add_field(name="Снят с должности «Forum Section»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263856995157545043:
+                        embed.add_field(name="Снят с должности «Support Section»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263863513693032459:
+                        embed.add_field(name="Снят с должности «Media Section»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263854784969183303:
+                        embed.add_field(name="Снят с должности «Build Section»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263856988937261076:
+                        embed.add_field(name="Снят с должности «Event Section»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263867286901751818:
+                        embed.add_field(name="Снят с должности «GP Section»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263856996692656140:
+                        embed.add_field(name="Снят с должности «Главного Модератора»", value=f"{member.mention}",
+                                        inline=False)
+                    elif member.top_role.id == 1263856996965159002:
+                        embed.add_field(name="Снят с должности «Старшего Модератора»", value=f"{member.mention}",
+                                        inline=False)
+                    elif member.top_role.id == 1263856997737037904:
+                        embed.add_field(name="Снят с должности «Модератора»", value=f"{member.mention}", inline=False)
+                    elif member.top_role.id == 1263856998005477467:
+                        embed.add_field(name="Снят с должности «Хелпера»", value=f"{member.mention}", inline=False)
+                    embed.add_field(name="", value="причина: 3/3 выговоров.")
+                    await ob_channel.send(embed=embed)
+                    roles_to_remove = [role for role in member.roles if
+                                       role.name in ["Менеджер персонала", "Менеджер медиа",
+                                                     "Глава Тех.Поддержки", "Команда Проекта", "Администратор",
+                                                     "Куратор модерации", "Мл.Куратор Модерации", "ГС Секции", "ЗГС Секции",
+                                                     "Teaching Section", "Method Section", "Forum Section",
+                                                     "Support Section",
+                                                     "Media Section", "Build Section", "Event Section", "GP Section",
+                                                     "Главный Модератор", "Старший Модератор", "Модератор", "Хелпер",
+                                                     "Выговор 2/3", "Выговор 1/3", "Устный 2/3", "Устный 1/3", "1st Group",
+                                                     "2nd Group", "3rd Group"]]
+                    await member.remove_roles(*roles_to_remove)
         with open('json/warnings.json', 'w') as file:
             json.dump(warnings, file)
     except Exception as e:
@@ -651,9 +651,10 @@ async def _warn(ctx, member: discord.Option(discord.Member, description="Ком�
 
 
 @bot.slash_command(name='unwarn',description='Снять последний выговор у модератора',guild_ids=[1263854530445971671])
-@default_permissions(administrator=True)
 async def unwarn(ctx, user: discord.Member):
     try:
+        if not ctx.author.guild_permissions.administrator:
+            return 
         if user.id in warnings and warnings[user.id]['count'] > 0:
             warnings[user.id]['count'] -= 1
             last_reason = warnings[user.id]['reasons'].pop()
@@ -675,9 +676,10 @@ async def unwarn(ctx, user: discord.Member):
 
 
 @bot.slash_command(name='warns',description='Выговоры модератора',guild_ids=[1263854530445971671])
-@default_permissions(administrator=True)
 async def _warns(ctx, user: discord.Member):
     try:
+        if not ctx.author.guild_permissions.administrator:
+            return 
         if user.id in warnings:
             embed = discord.Embed(title=f'', description=f'Выговоры у {user.name}',
                                   color=discord.Color.default())
@@ -696,9 +698,10 @@ async def _warns(ctx, user: discord.Member):
 
 
 @bot.slash_command(name='warnlist',description='Список пользователей с выговорами',guild_ids=[1263854530445971671])
-@default_permissions(administrator=True)
 async def warnlist(ctx):
     try:
+        if not ctx.author.guild_permissions.administrator:
+            return 
         if warnings:
             embed = discord.Embed(title='Список пользователей с выговорами', color=discord.Color.default())
             for user_id, data in warnings.items():
@@ -832,9 +835,10 @@ async def clear_messages(ctx: discord.ApplicationContext,
 
 
 @bot.slash_command(name="kick", description="Кикнуть пользователя")
-@default_permissions(kick_members=True)
 async def _kick(ctx,user: discord.Option(discord.Member, description="Участник сервера, которого нужно кикнуть"),
                 причина: discord.Option(str, description="Причина кика", default=False)):
+    if not ctx.author.guild_permissions.kick_members:
+        return
     if user == ctx.author:
         await ctx.respond(embed=Embed(title="",
                                       description="Вы не можете кикнуть себя!", color=Color.red()), ephemeral=True)
@@ -876,9 +880,9 @@ async def on_command_error(ctx, error):
 
 
 @roles.command(name="color", description="Изменить цвет роли")
-@permissions.default_permissions(manage_roles=True)
 async def _change_role_color(ctx, роль: discord.Option(discord.Role, description="Какой роли изменить цвет"),
-                             цвет: discord.Option(discord.Color, description="Цветовой код в формате HEX (например #fe3a3 или 0xfe3a3)")):
+                             цвет: discord.Option(
+                                 discord.Color,description="Цветовой код в формате HEX (например #fe3a3 или 0xfe3a3)")):
     try:
         if ctx.author.guild_permissions.manage_roles:
             if ctx.guild is None:
@@ -916,7 +920,6 @@ async def _change_role_color(ctx, роль: discord.Option(discord.Role, descrip
 
 
 @roles.command(name="pre", description="Изменить приоритет роли")
-@permissions.default_permissions(manage_roles=True)
 async def _pre(ctx, роль: discord.Option(discord.Role, description="Какую роль переместить"),
                pos: discord.Option(int, description="На какую позицию переместить роль")):
     try:
@@ -942,7 +945,6 @@ async def _pre(ctx, роль: discord.Option(discord.Role, description="Каку
 
 
 @roles.command(name="add", description="Выдать роль пользователю")
-@permissions.default_permissions(manage_roles=True)
 async def _give_role(ctx, user: discord.Option(discord.Member, description="Кому выдать роль"),
                      роль: discord.Option(discord.Role, description="Какую роль выдать")):
     try:
@@ -974,7 +976,6 @@ async def _give_role(ctx, user: discord.Option(discord.Member, description="Ко
 
 
 @roles.command(name="remove", description="Удалить роль у пользователя")
-@permissions.default_permissions(manage_roles=True)
 async def _remove_role(ctx, user: discord.Option(discord.Member, description="У кого нужно забрать роль"),
                        роль: discord.Option(discord.Role, description="Какую забрать роль")):
     try:
@@ -1011,26 +1012,27 @@ async def _remove_role(ctx, user: discord.Option(discord.Member, description="У
 
 
 @bot.slash_command(name="nick", description="Изменить ник пользователю")
-@default_permissions(manage_nicknames=True)
 async def _nick(ctx, user: discord.Option(discord.Member, "Кому изменить ник"),
                 ник: discord.Option(str, "Новый ник пользователя")):
     try:
         if ctx.guild is None:
             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
             return
-        embed = Embed(title="Пользователю изменён ник", color=0x7b68ee)
-        embed.add_field(name="Автор", value=ctx.author.mention, inline=False)
-        embed.add_field(name="Прошлый ник", value=user.nick, inline=True)
-        embed.add_field(name="Новый ник", value=ник)
-        await user.edit(nick=ник)
-        await ctx.response.send_message(f"Пользователю {user.name} изменён ник на: {ник}", ephemeral=True)
-        await send_log(ctx.guild.id, embed=embed)
+        if not ctx.author.guild_permissions.manage_nicknames:
+            return 
+        if ctx.author.top_role > user.top_role:
+            embed = Embed(title="Пользователю изменён ник", color=0x7b68ee)
+            embed.add_field(name="Автор", value=ctx.author.mention, inline=False)
+            embed.add_field(name="Прошлый ник", value=user.nick, inline=True)
+            embed.add_field(name="Новый ник", value=ник)
+            await user.edit(nick=ник)
+            await ctx.response.send_message(f"Пользователю {user.name} изменён ник на: {ник}", ephemeral=True)
+            await send_log(ctx.guild.id, embed=embed)
     except discord.Forbidden:
         await ctx.response.send_message("У меня нет прав на изменение ника этого пользователя", ephemeral=True)
 
 
 @roles.command(name="up", description='Повысить роль пользователя на 1 уровень')
-@permissions.default_permissions(manage_roles=True)
 async def _uprole(ctx, member: discord.Option(discord.Member, "Кому повысить роль")):
     try:
         if ctx.guild is None:
@@ -1069,7 +1071,6 @@ async def _uprole(ctx, member: discord.Option(discord.Member, "Кому повы
 
 
 @roles.command(name="do", description="Понизить роль пользователя на 1 уровень")
-@permissions.default_permissions(manage_roles=True)
 async def _do(ctx, member: discord.Option(discord.Member, description="Кому понизить роль")):
     try:
         if ctx.guild is None:
@@ -1296,7 +1297,6 @@ async def _unreg(ctx, member: discord.Option(discord.Member, description="Ког
 
 
 @roles.command(name="create", description="Создать роль")
-@permissions.default_permissions(manage_roles=True)
 async def createrole(ctx, роль: discord.Option(str, description="Название роли"),
                      цвет: discord.Option(discord.Color, description="Цвет для роли", required=False)):
     if bot.user in [member for member in ctx.guild.members if member.bot]:
@@ -1603,7 +1603,6 @@ async def _avatar(ctx: discord.ApplicationContext,
 
 
 @roles.command(name="replace", description='Заменить роль у пользователя')
-@permissions.default_permissions(manage_roles=True)
 async def replace(ctx, member: discord.Option(discord.Member, "У кого заменить роль"),
                   prev_role: discord.Option(discord.Role, "Предыдущая роль пользователя"),
                   new_role: discord.Option(discord.Role, "Новая роль пользователя")):
@@ -1677,8 +1676,9 @@ mention_cooldown = 120
 
 
 @bot.slash_command(name="ru", guild_ids=[1138204059397005352])
-@default_permissions(administrator=True)
 async def _send_r(ctx):
+    if not ctx.author.guild_permissions.administrator:
+        return
     embed = discord.Embed(title="Правила сервера Discord",
                           description="> Наш сервер придерживается правил Discord Terms of Service и Discord Community "
                                       "Guidelines, поэтому настоятельно советуем вам с ними ознакомиться.\n\n"
@@ -1968,10 +1968,11 @@ def save_data(data):
 
 
 @bot.slash_command(name='set_system', description="Назначить канал для сообщений о входе/выходе игроков")
-@default_permissions(administrator=True)
 async def set_system(ctx, channel: discord.abc.GuildChannel):
     if ctx.guild is None:
         await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
+        return
+    if not ctx.author.guild_permissions.administrator:
         return
     data = load_data()
     data[str(ctx.guild.id)] = channel.id
@@ -2021,36 +2022,40 @@ def perm_ac(ctx: discord.AutocompleteContext):
 
 
 @roles.command(name='delperm', description='Забрать право для роли')
-@permissions.default_permissions(administrator=True)
 async def _delperm(ctx, роль: discord.Option(discord.Role, description="У какой роли забрать разрешение"),
                    perm: discord.Option(description="Разрешение для установки", autocomplete=perm_ac)):
     try:
         if ctx.guild is None:
             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
             return
-        permissions = роль.permissions
-        permissions.update(**{perm: False})
-        await роль.edit(permissions=permissions)
-        await ctx.response.send_message(f"Разрешение {perm} забрано для роли {роль.name}")
-        await send_log(ctx.guild.id, f"{ctx.author.mention} забрал право `{perm}` у роли {роль.mention}")
+        if not ctx.author.guild_permissions.administrator:
+            return 
+        if ctx.author.top_role > роль:
+            permissions = роль.permissions
+            permissions.update(**{perm: False})
+            await роль.edit(permissions=permissions)
+            await ctx.response.send_message(f"Разрешение {perm} забрано для роли {роль.name}")
+            await send_log(ctx.guild.id, f"{ctx.author.mention} забрал право `{perm}` у роли {роль.mention}")
     except Exception as e:
         print(f"Произошла ошибка:\n{e}\nСервер: {ctx.guild.name}\nПользователь: {ctx.author.mention} | "
               f"`{ctx.author.id}`\nКоманда: setperm")
 
 
 @roles.command(name='setperm', description='Установить право для роли')
-@permissions.default_permissions(administrator=True)
 async def _setperm(ctx, роль: discord.Option(discord.Role, description="Какой роли выдать разрешение"),
                    perm: discord.Option(str, description="Разрешение для установки", autocomplete=perm_ac)):
     try:
         if ctx.guild is None:
             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
             return
-        permissions = роль.permissions
-        permissions.update(**{perm: True})
-        await роль.edit(permissions=permissions)
-        await ctx.response.send_message(f"Разрешение {perm} установлено для роли {роль.name}")
-        await send_log(ctx.guild.id, f"{ctx.author.mention} выдал право `{perm}` для роли {роль.mention}")
+        if not ctx.author.guild_permissions.administrator:
+            return 
+        if ctx.author.top_role > роль:
+            permissions = роль.permissions
+            permissions.update(**{perm: True})
+            await роль.edit(permissions=permissions)
+            await ctx.response.send_message(f"Разрешение {perm} установлено для роли {роль.name}")
+            await send_log(ctx.guild.id, f"{ctx.author.mention} выдал право `{perm}` для роли {роль.mention}")
     except Exception as e:
         print(f"Произошла ошибка:\n{e}\nСервер: {ctx.guild.name}\nПользователь: {ctx.author.mention} | "
               f"`{ctx.author.id}`\nКоманда: setperm")
@@ -2576,7 +2581,6 @@ async def hmb(ctx):
 
 
 @roles.command(name="list", description="Список ролей сервера")
-@permissions.default_permissions(manage_roles=True)
 async def role_list(ctx):
     try:
         if ctx.guild is None:
@@ -2667,7 +2671,6 @@ async def _delrole(ctx, *, роль: discord.Option(discord.Role, description="�
 
 
 @bot.slash_command(name="delchat", description="Удалить текстовый канал")
-@default_permissions(manage_channels=True)
 async def _delchat(ctx, name: discord.Option(discord.TextChannel, "Какой чат удалить")):
     try:
         if ctx.guild is None:
@@ -2690,19 +2693,21 @@ async def _delchat(ctx, name: discord.Option(discord.TextChannel, "Какой ч
 
 
 @bot.slash_command(name="delvoice", description="Удалить голосовой канал")
-@default_permissions(manage_channels=True)
 async def _delvoice(ctx, name: discord.Option(discord.VoiceChannel, "Какой чат удалить")):
     try:
         if ctx.guild is None:
             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
             return
-        embed = Embed(title="Голосовой канал удалён", color=0x7b68ee)
-        embed.add_field(name="Название", value=name, inline=True)
-        embed.add_field(name="Автор", value=ctx.author.mention)
-        embed.set_footer(text=f"user id: {ctx.author.id}")
-        await name.delete()
-        await ctx.response.send_message(f'Голосовой канал «{name.name}» был удален.', ephemeral=True)
-        await send_log(ctx.guild.id, embed=embed)
+        if ctx.author.guild_permissions.manage_channels:
+            embed = Embed(title="Голосовой канал удалён", color=0x7b68ee)
+            embed.add_field(name="Название", value=name, inline=True)
+            embed.add_field(name="Автор", value=ctx.author.mention)
+            embed.set_footer(text=f"user id: {ctx.author.id}")
+            await name.delete()
+            await ctx.response.send_message(f'Голосовой канал «{name.name}» был удален.', ephemeral=True)
+            await send_log(ctx.guild.id, embed=embed)
+        else:
+            await ctx.respond("У вас нет прав на использование этой команды!", ephemeral=True)
     except discord.Forbidden:
         await ctx.response.send_message(f"Недостаточно прав для удаления этого канала.", ephemeral=True)
     except discord.NotFound:
@@ -2761,7 +2766,6 @@ async def on_interaction(interaction):
 
 
 @bot.slash_command(name="embed", description="Создать Embed сообщение")
-@default_permissions(manage_messages=True)
 async def _staff_m(ctx, channel: discord.Option(discord.TextChannel | discord.DMChannel | discord.VoiceChannel,
                                                 description="Куда отправить", default=None),
                    message: Option(str, "Дополнительное сообщение (перед Embed)", default=None),
@@ -2815,7 +2819,8 @@ async def _staff_m(ctx, channel: discord.Option(discord.TextChannel | discord.DM
                                f"\nВы можете комбинировать шаблоны с текстом для динамичных сообщений.", inline=False)
         await ctx.respond(embed=embeds, ephemeral=True)
         return
-
+    if not ctx.author.guild_permissions.manage_messages:
+        return
     if message:
         message = message.replace("\\n", "\n")
     if title:
@@ -3512,7 +3517,6 @@ class GiveawayView(View):
 
 
 @bot.slash_command(name="giveaway", description="Создать розыгрыш")
-@default_permissions(administrator=True)
 async def giveaway(ctx, seconds, prize: discord.Option(str, description="Приз который получит победитель"),
                    winners_count: discord.Option(int, description="Макс кол-во победителей"),
                    participants_limit: discord.Option(int, description="Макс кол-во участников"),
@@ -3521,6 +3525,8 @@ async def giveaway(ctx, seconds, prize: discord.Option(str, description="При�
         if ctx.guild is None:
             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
             return
+        if not ctx.author.guild_permissions.administrator:
+            return 
         seconds = giveaway_parse_time(seconds)
         formatted_time = giveaway_format_time(seconds)
         embed = discord.Embed(title="🎉 Розыгрыш!", description=description or "Описание отсутствует", color=0x42f57b)
@@ -3748,29 +3754,29 @@ async def mutes(ctx):
 
 
 @bot.command(name="ban")
-@default_permissions(ban_members=True)
 async def ban(ctx, target, days: int = 0, reason: str = ""):
-    member = await get_member(ctx, target)
-    if not member:
-        return
-    await member.ban(reason=f"{reason if reason else None}")
-    if days > 0:
-        unban_time = (datetime.now() + timedelta(days=days)).isoformat()
-        ban_data[str(member.id)] = unban_time
-        save_ban_data(ban_data)
-    ban = discord.Embed(title="",
-                        description=f"{member.mention} был забанен {'на ' + str(days) + ' дней' if days > 0 else ''}.")
-    await ctx.reply(embed=ban)
+    if ctx.author.guild_permissions.ban_members:
+        member = await get_member(ctx, target)
+        if not member:
+            return
+        await member.ban(reason=f"{reason if reason else None}")
+        if days > 0:
+            unban_time = (datetime.now() + timedelta(days=days)).isoformat()
+            ban_data[str(member.id)] = unban_time
+            save_ban_data(ban_data)
+        ban = discord.Embed(title="",
+                            description=f"{member.mention} был забанен {'на ' + str(days) + ' дней' if days > 0 else ''}.")
+        await ctx.reply(embed=ban)
 
 
 @bot.command(name="unban")
-@commands.has_permissions(ban_members=True)
 async def unban(ctx, target: discord.User):
-    await ctx.guild.unban(target)
-    if str(target.id) in ban_data:
-        del ban_data[str(target.id)]
-        save_ban_data(ban_data)
-    await ctx.reply(embed=discord.Embed(title="", description=f"{target.mention} был разбанен."))
+    if ctx.author.guild_permissions.ban_members:
+        await ctx.guild.unban(target)
+        if str(target.id) in ban_data:
+            del ban_data[str(target.id)]
+            save_ban_data(ban_data)
+        await ctx.reply(embed=discord.Embed(title="", description=f"{target.mention} был разбанен."))
 
 
 @tasks.loop(minutes=1)
