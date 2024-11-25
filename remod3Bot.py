@@ -454,7 +454,7 @@ FUNCTIONS = {
     'abs': abs,
     'max': max, 'min': min,
     'round': round,
-    'pow': pow, '**': pow, '^': pow,
+    'pow': pow, '**': pow,
     'sqrt': math.sqrt, 'isqrt': math.isqrt,
     'log': math.log,
     'sin': math.sin, 'cos': math.cos, 'tan': math.tan, 'cot': lambda x: 1 / math.tan(math.radians(x)),
@@ -469,33 +469,68 @@ FUNCTIONS = {
     'comb': math.comb, 'perm': math.perm,
     'trunc': math.trunc,
     'gcd': math.gcd,
+    'len': len,
     'real': lambda z: z.real, 'imag': lambda z: z.imag,
-    'mean': mean,
-    'median': median
+    'mean': lambda data: sum(data)/len(data),
+    'median': lambda data: sorted(data)[len(data)//2]
 }
 
 
 def safe_eval(expression):
-    tree = ast.parse(expression, mode='eval')
-    return _eval(tree.body)
+    expression = expression.replace(" ", "")
+    expression = re.sub(r"(?<!\w)\^(?!\w)", "**", expression)
+    expression = re.sub(r"!(\d+)", r"math.factorial(\1)", expression)
+    try:
+        tree = ast.parse(expression, mode='eval')
+        return _eval(tree.body)
+    except Exception as e:
+        raise ValueError(f"Ошибка при обработке выражения: {e}")
 
 
 def _eval(node):
-    if isinstance(node, ast.BinOp):
-        if type(node.op) in OPERATORS:
-            return OPERATORS[type(node.op)](_eval(node.left), _eval(node.right))
-        raise ValueError("Unsupported operator")
-    elif isinstance(node, ast.Call):
+    if isinstance(node, ast.BinOp):  # Бинарные операции
+        left = _eval(node.left)
+        right = _eval(node.right)
+        return OPERATORS[type(node.op)](left, right)
+    elif isinstance(node, ast.UnaryOp):  # Унарные операции
+        operand = _eval(node.operand)
+        if isinstance(node.op, ast.UAdd):  # Унарный плюс
+            return +operand
+        elif isinstance(node.op, ast.USub):  # Унарный минус
+            return -operand
+    elif isinstance(node, ast.Call):  # Вызов функции
         if isinstance(node.func, ast.Name) and node.func.id in FUNCTIONS:
             args = [_eval(arg) for arg in node.args]
             return FUNCTIONS[node.func.id](*args)
-        raise ValueError("Unsupported function")
-    elif isinstance(node, ast.Num):
+        elif isinstance(node.func, ast.Attribute):  # Вызов функций типа `math.factorial`
+            obj = _eval(node.func.value)  # Например, это `math`
+            if isinstance(obj, type(math)) and hasattr(obj, node.func.attr):
+                func = getattr(obj, node.func.attr)
+                args = [_eval(arg) for arg in node.args]
+                return func(*args)
+        else:
+            raise ValueError(f"Недопустимая функция: {node.func}")
+    elif isinstance(node, ast.Attribute):  # Узлы типа `math.pi`
+        value = _eval(node.value)
+        if isinstance(value, type(math)) and hasattr(value, node.attr):
+            return getattr(value, node.attr)
+    elif isinstance(node, ast.Name):  # Переменные (например, `pi` или `e`)
+        if node.id in FUNCTIONS:
+            return FUNCTIONS[node.id]
+        elif node.id == 'math':  # Модуль math
+            return math
+        else:
+            raise ValueError(f"Недопустимое имя: {node.id}")
+    elif isinstance(node, ast.Constant):  # Число (Python 3.8+)
+        return node.value
+    elif isinstance(node, ast.Num):  # Число (Python < 3.8)
         return node.n
-    elif isinstance(node, ast.Expression):
-        return _eval(node.body)
+    elif isinstance(node, ast.List):  # Списки
+        return [_eval(elem) for elem in node.elts]
+    elif isinstance(node, ast.Tuple):  # Кортежи
+        return tuple(_eval(elem) for elem in node.elts)
     else:
-        raise TypeError("Unsupported expression")
+        raise ValueError(f"Недопустимая операция: {type(node)}")
 
 
 @bot.slash_command(name="calculate", description="Вычисляет математическое выражение")
@@ -509,8 +544,9 @@ async def _calculate(ctx, expression: str = None):
                 "`max(a, b, ...)` - максимум, пример: `max(3, 7, 1) → 7`\n"
                 "`min(a, b, ...)` - минимум, пример: `min(3, 7, 1) → 1`\n"
                 "`round(x, n)` - округление до `n` знаков, пример: `round(3.14159, 2) → 3.14`\n"
-                "`pow(a, b)` или `a**b` или `a^b`- возведение в степень, пример: `pow(2, 3) → 8`\n"
-                "`sqrt(x)` - квадратный корень, пример: `sqrt(16) → 4`"), inline=False)
+                "`pow(a, b)` или `a**b` - возведение в степень, пример: `pow(2, 3) → 8`\n"
+                "`sqrt(x)` - квадратный корень, пример: `sqrt(16) → 4`\n"
+                "`len(a)` - длина строки, пример: `len(\"Hello\") → 5`"), inline=False)
             embed.add_field(name="Логарифмы и экспоненты", value=(
                 "`log(x, base)` - логарифм числа `x` по основанию `base`, пример: `log(8, 2) → 3`\n"
                 "`exp(x)` - e^x, пример: `exp(1) → 2.71828`"), inline=False)
@@ -520,7 +556,7 @@ async def _calculate(ctx, expression: str = None):
                 "`tan(x)` - тангенс угла, пример: `tan(pi/4) → 1`\n"
                 "`cot(x)` - котангенс угла в градусах, пример: `cot(45) → 1`"), inline=False)
             embed.add_field(name="Углы", value=("`deg(x)` - перевод из радиан в градусы, пример: `deg(pi) → 180`\n"
-                                                "`rad(x)` - перевод из градусов в радианы, пример: `rad(180) → pi`"),
+                                                "`rad(x)` - перевод из градусов в радианы, пример: `rad(180) → 3.14`"),
                             inline=False)
             embed.add_field(name="Округление", value=("`ceil(x)` - округление вверх, пример: `ceil(2.3) → 3`\n"
                                                       "`floor(x)` - округление вниз, пример: `floor(2.7) → 2`\n"
@@ -529,7 +565,7 @@ async def _calculate(ctx, expression: str = None):
             embed.add_field(name="Специальные значения", value=("`pi` - число π, пример: `pi → 3.14159`\n"
                                                                 "`e` - число e, пример: `e → 2.71828`"), inline=False)
             embed.add_field(name="Факторизация и комбинаторика",
-                            value=("`!(n)` - факториал числа, пример: `!(5) → 120`\n"
+                            value=("`!n` - факториал числа, пример: `!5 → 120`\n"
                                    "`comb(n, k)` - сочетания, пример: `comb(5, 2) → 10`\n"
                                    "`perm(n, k)` - перестановки, пример: `perm(5, 2) → 20`"), inline=False)
             embed.add_field(name="Геометрия", value=("`hypot(a, b)` - гипотенуза, пример: `hypot(3, 4) → 5`\n"
@@ -543,14 +579,19 @@ async def _calculate(ctx, expression: str = None):
                             inline=False)
             embed.set_footer(text="Используйте функции с правильным синтаксисом и аргументами для успешных расчетов!")
             await ctx.response.send_message(embed=embed, ephemeral=True)
-        result = safe_eval(expression)
-        embed = discord.Embed(description=f"Результат выражения `{expression}`", color=0x5a357f)
-        embed.add_field(name="Результат", value=f"`{result}`")
-        await ctx.response.send_message(embed=embed)
-    except TypeError:
-        await ctx.response.send_message("Оператор не поддерживается!", ephemeral=True)
+        else:
+            result = safe_eval(expression)
+            embed = discord.Embed(description=f"Результат выражения `{expression}`", color=0x5a357f)
+            embed.add_field(name="Ответ", value=f"`{result}`")
+            await ctx.response.send_message(embed=embed)
+
+    except SyntaxError:
+        await ctx.response.send_message("Ошибка синтаксиса в выражении. Проверьте ввод!", ephemeral=True)
+    except ValueError as ve:
+        await ctx.response.send_message(f"Ошибка: {ve}", ephemeral=True)
     except Exception as e:
-        await print(f"Ошибка: {e}")
+        print(f"Ошибка: {e}")
+        await ctx.response.send_message("Произошла ошибка при выполнении вычислений.", ephemeral=True)
 
 
 @bot.command(name='warns')
@@ -1191,7 +1232,7 @@ async def _rclear(ctx, member: discord.Option(discord.Member, description="У к
     except PermissionError:
         await ctx.respond("У меня недостаточно прав для удаления ролей!", ephemeral=True)
     except Exception as e:
-        await print(f"Произошла ошибка: {str(e)}")
+        print(f"Произошла ошибка: {str(e)}")
 
 
 @bot.slash_command(name="jn")
