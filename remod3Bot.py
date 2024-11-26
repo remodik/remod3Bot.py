@@ -19,6 +19,8 @@ import hashlib
 # from pypresence import Presence
 import math
 import io
+import numpy as np
+import matplotlib.pyplot as plt
 import json
 import sqlite3
 import os, openai, operator
@@ -471,8 +473,8 @@ FUNCTIONS = {
     'gcd': math.gcd,
     'len': len,
     'real': lambda z: z.real, 'imag': lambda z: z.imag,
-    'mean': lambda data: sum(data)/len(data),
-    'median': lambda data: sorted(data)[len(data)//2]
+    'mean': lambda data: sum(data) / len(data),
+    'median': lambda data: sorted(data)[len(data) // 2]
 }
 
 
@@ -488,46 +490,46 @@ def safe_eval(expression):
 
 
 def _eval(node):
-    if isinstance(node, ast.BinOp):  # Бинарные операции
+    if isinstance(node, ast.BinOp):
         left = _eval(node.left)
         right = _eval(node.right)
         return OPERATORS[type(node.op)](left, right)
-    elif isinstance(node, ast.UnaryOp):  # Унарные операции
+    elif isinstance(node, ast.UnaryOp):
         operand = _eval(node.operand)
-        if isinstance(node.op, ast.UAdd):  # Унарный плюс
+        if isinstance(node.op, ast.UAdd):
             return +operand
-        elif isinstance(node.op, ast.USub):  # Унарный минус
+        elif isinstance(node.op, ast.USub):
             return -operand
-    elif isinstance(node, ast.Call):  # Вызов функции
+    elif isinstance(node, ast.Call):
         if isinstance(node.func, ast.Name) and node.func.id in FUNCTIONS:
             args = [_eval(arg) for arg in node.args]
             return FUNCTIONS[node.func.id](*args)
-        elif isinstance(node.func, ast.Attribute):  # Вызов функций типа `math.factorial`
-            obj = _eval(node.func.value)  # Например, это `math`
+        elif isinstance(node.func, ast.Attribute):
+            obj = _eval(node.func.value)
             if isinstance(obj, type(math)) and hasattr(obj, node.func.attr):
                 func = getattr(obj, node.func.attr)
                 args = [_eval(arg) for arg in node.args]
                 return func(*args)
         else:
             raise ValueError(f"Недопустимая функция: {node.func}")
-    elif isinstance(node, ast.Attribute):  # Узлы типа `math.pi`
+    elif isinstance(node, ast.Attribute):
         value = _eval(node.value)
         if isinstance(value, type(math)) and hasattr(value, node.attr):
             return getattr(value, node.attr)
-    elif isinstance(node, ast.Name):  # Переменные (например, `pi` или `e`)
+    elif isinstance(node, ast.Name):
         if node.id in FUNCTIONS:
             return FUNCTIONS[node.id]
-        elif node.id == 'math':  # Модуль math
+        elif node.id == 'math':
             return math
         else:
             raise ValueError(f"Недопустимое имя: {node.id}")
-    elif isinstance(node, ast.Constant):  # Число (Python 3.8+)
+    elif isinstance(node, ast.Constant):
         return node.value
-    elif isinstance(node, ast.Num):  # Число (Python < 3.8)
+    elif isinstance(node, ast.Num):
         return node.n
-    elif isinstance(node, ast.List):  # Списки
+    elif isinstance(node, ast.List):
         return [_eval(elem) for elem in node.elts]
-    elif isinstance(node, ast.Tuple):  # Кортежи
+    elif isinstance(node, ast.Tuple):
         return tuple(_eval(elem) for elem in node.elts)
     else:
         raise ValueError(f"Недопустимая операция: {type(node)}")
@@ -2150,6 +2152,32 @@ async def _delperm(ctx, роль: discord.Option(discord.Role, description="У �
               f"`{ctx.author.id}`\nКоманда: setperm")
 
 
+@bot.slash_command(name="plot", description="Построить график функции")
+async def plot(ctx, func):
+    """
+    Построить график указанной функции.
+    Пример: !plot x**2
+    """
+    try:
+        x = np.linspace(-10, 10, 500)
+        y = eval(func, {"__builtins__": None}, {"x": x, "np": np})
+        plt.figure()
+        plt.plot(x, y, label=f"y = {func}")
+        plt.axhline(0, color='black', linewidth=0.5, linestyle="--")
+        plt.axvline(0, color='black', linewidth=0.5, linestyle="--")
+        plt.title("График функции")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.grid(color='gray', linestyle='--', linewidth=0.5)
+        plt.legend()
+        plt.savefig("plot.png")
+        plt.close()
+        await ctx.response.send_message(file=discord.File("plot.png"), ephemeral=True)
+    except Exception as e:
+        print(f"Произошла ошибка: {e}")
+        await ctx.response.send_message("Извините, но при обратотке вашей функции произошла ошибка.", ephemeral=True)
+
+
 @roles.command(name='setperm', description='Установить право для роли')
 async def _setperm(ctx, роль: discord.Option(discord.Role, description="Какой роли выдать разрешение"),
                    perm: discord.Option(str, description="Разрешение для установки", autocomplete=perm_ac)):
@@ -2252,13 +2280,13 @@ async def help_roles(ctx: Interaction):
 
 
 def load_roles():
-    if os.path.exists('roles.json'):
-        with open('roles.json', 'r') as file: return json.load(file)
+    if os.path.exists('json/roles.json'):
+        with open('json/roles.json', 'r') as file: return json.load(file)
     return {"role_1": {}, "role_2": {}, "role_3": {}}
 
 
 def save_roles(data):
-    with open('roles.json', 'w') as file: json.dump(data, file)
+    with open('json/roles.json', 'w') as file: json.dump(data, file)
 
 
 class RoleButtons(View):
@@ -2672,12 +2700,8 @@ class HelpView(discord.ui.View):
 
 @bot.slash_command(name="help", description="Информация о моих командах")
 async def _help(ctx: Interaction):
-    if ctx.guild is None:
-        await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
-        return
     view = HelpView()
-    await ctx.response.send_message(ephemeral=True, content="+")
-    await ctx.send("Помощь по моим командам", view=view)
+    await ctx.response.send_message(ephemeral=True, view=view, content="Помощь по моим командам")
 
 
 @bot.command(name="hmb")
@@ -3679,7 +3703,7 @@ async def giveaway(ctx, seconds, prize: discord.Option(str, description="При�
 #         await interaction.response.send_message(f"Найденные слова: {found_terms}", ephemeral=True)
 
 
-ban_data_file = "ban_data.json"
+ban_data_file = "json/ban_data.json"
 
 
 def load_ban_data():
