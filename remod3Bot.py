@@ -23,7 +23,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 import sqlite3
-import os, openai, operator
+import os, operator
 import textwrap, time
 import subprocess
 from statistics import mean, median
@@ -45,8 +45,9 @@ def get_prefix(bot, message):
 
 
 bot = commands.Bot(command_prefix=get_prefix, intents=discord.Intents.all(), enable_debug_events=True)
-roles = discord.SlashCommandGroup("role", "description", guild_only=True)
+roles = discord.SlashCommandGroup("role", "description")
 bot.remove_command("help")
+bgac = bot.get_application_command
 
 
 @bot.command(name="prefix")
@@ -107,14 +108,6 @@ class CapsView(View):
             button.label = "Скрыть содержимое"
             await interaction.response.edit_message(content=f'В вашем сообщении {self.caps_percentage:.2f}% капса\n'
                                                             f'Ваш текст: `{self.text}`', view=self)
-
-
-@bot.slash_command(name="restart", guild_ids=[1241732478020878469, 1148996038363975800, 1214617864863219732])
-@commands.is_owner()
-async def restart_bot(ctx: Interaction):
-    await ctx.response.send_message("Успешно", ephemeral=True)
-    os.system('cls')
-    os.system('python.exe C:\\Users\\slend\\OneDrive\\OneDrive\\bot\\remod3Bot.py')
 
 
 @bot.slash_command(name="caps")
@@ -482,6 +475,7 @@ def safe_eval(expression):
     expression = expression.replace(" ", "")
     expression = re.sub(r"(?<!\w)\^(?!\w)", "**", expression)
     expression = re.sub(r"!(\d+)", r"math.factorial(\1)", expression)
+    expression = re.sub(r"(\d+)!", r"math.factorial(\1)", expression)
     try:
         tree = ast.parse(expression, mode='eval')
         return _eval(tree.body)
@@ -979,11 +973,13 @@ async def _kick(ctx, user: discord.Option(discord.Member, description="Учас�
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingPermissions):
-        await ctx.send("У вас нет необходимых прав для использования этой команды.", ephemeral=True)
+        await ctx.respond("У вас нет необходимых прав для использования этой команды.", ephemeral=True)
     elif isinstance(error, AttributeError):
         await ctx.response.send_message("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
+    elif isinstance(error, Forbidden):
+        await ctx.response.send_message("У меня нет необходимых прав для использования этой команды.", ephemeral=True)
     else:
-        await ctx.send(f"Произошла ошибка: {str(error)}")
+        print(f"Произошла ошибка: {str(error)}")
         raise error
 
 
@@ -1273,10 +1269,7 @@ ds_roles = {
 }
 
 
-@bot.slash_command(
-    name="dsup",
-    guild_ids=[1138204059397005352]
-)
+@bot.slash_command(name="dsup", guild_ids=[1138204059397005352])
 async def dsup(ctx: discord.Interaction, user: discord.Member,
                d_role: discord.Option(str, choices=list(ds_roles.keys()))):
     current_role = None
@@ -1467,7 +1460,7 @@ async def guilds(ctx: discord.Interaction):
 last_used = {}
 
 
-@bot.slash_command(name="8ball", description='Сыграть в игру на кик с сервера', guild_only=True)
+@bot.slash_command(name="8ball", description='Сыграть в игру на кик с сервера')
 async def eight_ball(ctx):
     user_id = ctx.author.id
     current_time = time.time()
@@ -1633,7 +1626,7 @@ def s_mod_data(m_data):
         json.dump(m_data, f, indent=4)
 
 
-mod_com = discord.SlashCommandGroup(name="mod", description="", guild_only=True)
+mod_com = discord.SlashCommandGroup(name="mod", description="")
 
 
 @mod_com.command(name="add", description="Добавить модерацию")
@@ -2230,7 +2223,7 @@ class HelpRolesView(View):
 
 
 @bot.slash_command(name="perms", description="Информация о разрешениях ролей")
-async def help_roles(ctx: Interaction):
+async def role_perms(ctx: Interaction):
     embeds = [
         Embed(
             title="Информация о разрешениях ролей",
@@ -2344,363 +2337,6 @@ async def setup_button():
 
 
 bot.loop.create_task(setup_button())
-
-
-class HelpSelect(Select):
-    def __init__(self):
-        options = [
-            discord.SelectOption(
-                label="Не выбрано",
-                emoji=discord.PartialEmoji(id=877264845366517770, name="No_Check")
-            ),
-            discord.SelectOption(
-                label="Настройки",
-                emoji=discord.PartialEmoji(name="43a63c2b9c4e96dc7a6a", id=1305791881791406151)
-            ),
-            discord.SelectOption(
-                label="Модерация",
-                emoji=discord.PartialEmoji(
-                    name="Ban_Hammer_7437",
-                    id=1303576542273863701
-                )
-            ),
-            discord.SelectOption(
-                label="Роли",
-                emoji=discord.PartialEmoji(
-                    name="Owner_7437",
-                    id=1303575461154132018
-                )
-            ),
-            discord.SelectOption(
-                label="Развлечения",
-                emoji=discord.PartialEmoji(name="controller", id=1107789264135139509)
-            ),
-            discord.SelectOption(
-                label="Другое",
-                emoji=discord.PartialEmoji(name="VisionAnemo", id=725173419133370390)
-            )
-        ]
-        super().__init__(placeholder="Выберите категорию", options=options, custom_id="help_command")
-
-    async def callback(self, ctx: discord.Interaction):
-        pref = get_prefix(bot, ctx)
-        selected_value = self.values[0]
-        if selected_value == "Настройки":
-            category_title = "Команды для настройки бота"
-        elif selected_value == "Модерация":
-            category_title = "Команды для модерации сервера"
-        elif selected_value == "Роли":
-            category_title = "Команды управления ролями. (/role *arg)"
-        elif selected_value == "Развлечения":
-            category_title = "Развлекательные команды"
-        elif selected_value == "Другое":
-            category_title = "Прочие команды"
-        else:
-            category_title = "Список команд"
-
-        embed = discord.Embed(title=category_title, color=discord.Color.blue())
-
-        def add_commands_to_embed(commands_permissions):
-            for cmd, info in commands_permissions.items():
-                if info.get('requires_permission') and not getattr(ctx.user.guild_permissions, info['permission'],
-                                                                   False):
-                    continue
-                if info.get('guild_access') and ctx.guild.id not in info['guild_access']:
-                    continue
-                if info.get('role_access') and not any(role.id in info['role_access'] for role in ctx.user.roles):
-                    continue
-                if info.get('user_access') and ctx.user.id not in info['user_access']:
-                    continue
-                embed.add_field(name="", value=info['description'], inline=False)
-            return embed
-
-        if selected_value == "Настройки":
-            commands_permissions = {
-                'prefix': {
-                    'permission': 'administrator',
-                    'description': f'`prefix` - Установить префикс команд бота. **Использование:** `{pref}prefix '
-                                   f'prefix`',
-                    'requires_permission': True,
-                    'guild_access': None,
-                    'role_access': None,
-                    'user_access': None
-                },
-                'set_system': {
-                    'permission': 'administrator',
-                    'description': '</set_system:1306213844712030262> - Установить канал для уведомлений о '
-                                   'входах/выходах.',
-                    'requires_permission': True,
-                    'guild_access': None,
-                    'role_access': None,
-                    'user_access': None
-                },
-            }
-            embed = add_commands_to_embed(commands_permissions)
-        elif selected_value == "Модерация":
-            commands_permissions = {
-                'kick': {
-                    'permission': 'kick_members',
-                    'description': '</kick:1306213844363907137> - Выгнать пользователя с сервера.',
-                    'requires_permission': True
-                },
-                'clear': {
-                    'permission': 'manage_messages',
-                    'description': '</clear:1306213844363907136> - Удалить сообщения в чате.',
-                    'requires_permission': True
-                },
-                'delchat': {
-                    'permission': 'manage_channels',
-                    'description': '</delchat:1306213844712030265> - Удалить текстовый чат.',
-                    'requires_permission': True
-                },
-                'delvoice': {
-                    'permission': 'manage_channels',
-                    'description': '</delvoice:1306213844712030267> - Удалить голосовой чат.',
-                    'requires_permission': True
-                },
-                'nick': {
-                    'permission': 'manage_nicknames',
-                    'description': '</nick:1306213844363907138> - Изменить ник пользователя.',
-                    'requires_permission': True
-                },
-                'presence': {
-                    'permission': 'kick_members',
-                    'description': '</presence:1306578580699877466> - Поиск людей с определённой активностью.',
-                    'requires_permission': True
-                }
-            }
-            embed = add_commands_to_embed(commands_permissions)
-        elif selected_value == "Роли":
-            commands_permissions = {
-                'add': {
-                    'permission': 'manage_roles',
-                    'description': '</role add:1307242710674968667> - Выдать пользователю роль.',
-                    'requires_permission': True
-                },
-                'create': {
-                    'permission': 'manage_roles',
-                    'description': "</role create:1307242710674968667> - Создать роль.",
-                    'requires_permission': True
-                },
-                'delperm': {
-                    'permission': 'administrator',
-                    'description': "</role delperm:1307242710674968667> - Забрать право у роли.",
-                    'requires_permission': True
-                },
-                'do': {
-                    'permission': 'manage_roles',
-                    'description': "</role do:1307242710674968667> - Повысить роль пользователя на 1 уровень.",
-                    'requires_permission': True
-                },
-                'delete': {
-                    'permission': 'manage_roles',
-                    'description': "</role delete:1307242710674968667> - Удалить роль.",
-                    'requires_permission': True
-                },
-                'pre': {
-                    'permission': 'administrator',
-                    'description': "</role pre:1307242710674968667> - Изменить приоритет роли.",
-                    'requires_permission': True
-                },
-                'clear': {
-                    'permission': 'administrator',
-                    'description': "</role clear:1307242710674968667> - Забрать все роли у пользователя.",
-                    'requires_permission': True
-                },
-                'color': {
-                    'permission': 'manage_roles',
-                    'description': "</role color:1307242710674968667> - Изменить цвет роли.",
-                    'requires_permission': True
-                },
-                'remove': {
-                    'permission': 'manage_roles',
-                    'description': "</role delete:1307242710674968667> - Забрать роль у пользователя.",
-                    'requires_permission': True
-                },
-                'replace': {
-                    'permission': 'manage_roles',
-                    'description': "</role replace:1307242710674968667> - Заменить роль у пользователя.",
-                    'requires_permission': True
-                },
-                'name': {
-                    'permission': 'manage_roles',
-                    'description': "</role rename:1307242710674968667> - Переименовать роль.",
-                    'requires_permission': True
-                },
-                'list': {
-                    'permission': 'manage_roles',
-                    'description': "</role list:1307242710674968667> - Список ролей сервера.",
-                    'requires_permission': True
-                },
-                'setperm': {
-                    'permission': 'administrator',
-                    'description': "</role setperm:1307242710674968667> - Установить право для роли.",
-                    'requires_permission': True
-                },
-                'up': {
-                    'permission': 'manage_roles',
-                    'description': "</role up:1307242710674968667> - Повысить роль пользователя на 1 уровень.",
-                    'requires_permission': True
-                }
-            }
-            embed = add_commands_to_embed(commands_permissions)
-        elif selected_value == "Развлечения":
-            commands_permissions = {
-                '8ball': {
-                    'permission': '',
-                    'description': '</8ball:1306213844712030261> - Игра на кик с сервера, шанс проиграть 10%.',
-                    'requires_permission': False
-                },
-                'giveaway': {
-                    'permission': 'administrator',
-                    'description': '</giveaway:1306213844909297686> - Сделать розыгрыш на сервере.',
-                    'requires_permission': True
-                },
-                'anime': {
-                    'permission': '',
-                    'description': '</anime:1306578580699877463> - Посмотреть информацию об аниме.',
-                    'requires_permission': False
-                }
-            }
-            embed = add_commands_to_embed(commands_permissions)
-        elif selected_value == "Другое":
-            commands_permissions = {
-                'mserver': {
-                    'permission': 'administrator',
-                    'description': '</mserver:1306625242516557869> - Посмотреть информацию о Minecraft сервере.',
-                    'requires_permission': False,
-                    'guild_access': None,
-                    'role_access': None,
-                    'user_access': None
-                },
-                'avatar': {
-                    'permission': 'administrator',
-                    'description': '</avatar:1306578580699877464> Получить пользователя или сервера.',
-                    'requires_permission': False,
-                    'guild_access': None,
-                    'role_access': None,
-                    'user_access': None
-                },
-                'calculate': {
-                    'permission': 'administrator',
-                    'description': '</calculate:1306213844363907135> - Посчитать выражение.',
-                    'requires_permission': False,
-                    'guild_access': None,
-                    'role_access': None,
-                    'user_access': None
-                },
-                'faq': {
-                    'permission': 'administrator',
-                    'description': '</faq:1306213844909297689> - Информация о боте.',
-                    'requires_permission': False,
-                    'guild_access': None,
-                    'role_access': None,
-                    'user_access': None
-                },
-                'предложение': {
-                    'permission': 'administrator',
-                    'description': '</предложение:1306213844909297685> - Предложить улучшить бота.',
-                    'requires_permission': False,
-                    'guild_access': None,
-                    'role_access': None,
-                    'user_access': None
-                },
-                'bug_report': {
-                    'permission': None,
-                    'description': '</bug_report:1306213844909297684> - Сообщить о баге в боте.',
-                    'requires_permission': False,
-                    'guild_access': None,
-                    'role_access': None,
-                    'user_access': None
-                },
-                'unreg': {
-                    'permission': 'administrator',
-                    'description': '</unreg:1265212320234209375> - Снять модератора с должности.',
-                    'requires_permission': True,
-                    'guild_access': [1263854530445971671],
-                    'role_access': [1263854775900835904],
-                    'user_access': [931585084312670219, 933020119783858247, 1097064973328453704, 743864658951274528]
-                },
-                'reg': {
-                    'permission': 'administrator',
-                    'description': '</reg:1265212320234209376> - Принять пользователя на должность.',
-                    'requires_permission': True,
-                    'guild_access': [1263854530445971671],
-                    'role_access': [1263854775900835904],
-                    'user_access': [931585084312670219, 933020119783858247, 1097064973328453704, 743864658951274528]
-                },
-                'dsup': {
-                    'permission': 'administrator',
-                    'description': '<dsup:1279065730620592148> - Повысить модератора Discord в должности.',
-                    'requires_permission': True,
-                    'guild_access': [1138204059397005352],
-                    'role_access': [1219899085855789056, 1250430571252023397, 1228593717586427987],
-                    'user_access': None
-                },
-                'munreg': {
-                    'permission': 'administrator',
-                    'description': '`munreg` - Снять модератора Discord с должности.',
-                    'requires_permission': True,
-                    'guild_access': [1138204059397005352],
-                    'role_access': [1219899085855789056, 1250430571252023397, 1228593717586427987],
-                    'user_access': [990180688504434688]
-                },
-                'report': {
-                    'permission': 'administrator',
-                    'description': '</report:1268277034992537603> - Отправить жалобу на игрока.',
-                    'requires_permission': False,
-                    'guild_access': [1138204059397005352],
-                    'role_access': None,
-                    'user_access': None
-                },
-                'hmb': {
-                    'permission': 'administrator',
-                    'description': '`hmb` - Вызвать сообщение с выбором ролей уведомлений HightMine. '
-                                   f'**Использование:** `{pref}hmb`',
-                    'requires_permission': True,
-                    'guild_access': [1138204059397005352],
-                    'role_access': None,
-                    'user_access': None
-                },
-                'caps': {
-                    'permission': 'manage_messages',
-                    'description': '</caps:1306213844363907133> - Узнать % верхнего регистра.',
-                    'requires_permission': False,
-                    'guild_access': None,
-                    'role_access': None,
-                    'user_access': None
-                },
-                'send_stat': {
-                    'permission': 'administrator',
-                    'description': '</send_stat:1306213844363907134> - Назначить канал для статистики сервера.',
-                    'requires_permission': True
-                }
-            }
-            embed = add_commands_to_embed(commands_permissions)
-        if self.values[0] == "Не выбрано":
-            await ctx.response.defer(invisible=True)
-            return
-        if not embed.fields:
-            await ctx.response.send_message("Нет прав на использование команд в этой категории.", ephemeral=True)
-        else:
-            await ctx.response.send_message(embed=embed, ephemeral=True)
-
-
-class HelpView(discord.ui.View):
-    def __init__(self):
-        self.custom_id = "help_view"
-        super().__init__(timeout=None)
-        self.add_item(HelpSelect())
-
-        async def on_error(self, error: Exception, interaction: Interaction) -> None:
-            await interaction.response.send_message("Произошла ошибка! Свяжитесь с разработчиком для решения проблемы: "
-                                                    f"`remodik`\n\n{error}")
-
-
-@bot.slash_command(name="help", description="Информация о моих командах")
-async def _help(ctx: Interaction):
-    view = HelpView()
-    await ctx.response.send_message(ephemeral=True, view=view, content="Помощь по моим командам")
 
 
 @bot.command(name="hmb")
@@ -3091,6 +2727,11 @@ persistent_views_added = False
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}')
+    guild_id = bot.guilds[0].id
+    commands_1 = await bot.http.get_guild_commands(bot.user.id, guild_id)
+    for command in commands_1:
+        print(f"Команда: {command['name']}, ID: {command['id']}")
+    print(", ".join(command.callback.__name__ for command in bot.application_commands if hasattr(command, 'callback')))
     global persistent_views_added
     global message_to_update
     if not persistent_views_added:
@@ -3110,18 +2751,11 @@ async def on_ready():
         update_message.stop()
     update_message.start()
     bot.add_view(HelpView())
-    await bot.change_presence(activity=discord.Game(name="/help (От администратора)"))
+    await bot.change_presence(activity=discord.Game(name="/help"))
     await setup_views()
-    commands_ = [restart_bot, caps, send_stat, _staff_ds, _calculate, _warn, unwarn, _warns, warnlist, clear_messages,
-                 _kick, log, _nick, ping, dsup, _stop, munreg_command, _unreg, _reg, guilds, eight_ball, _report_,
-                 _send_r, _help, set_system, help_roles, _delchat, _delvoice, bug_report, bot_idea, anime, _faq,
-                 giveaway, _avatar, find_presence, _staff_m, _mserver, обновление, история, inform]
+    commands_ = [caps, _calculate, ping, anime, _avatar, plot, role_perms, bug_report, bot_idea, inform, _mserver,
+                 обновление, история]
     # await bot.register_commands(commands=commands_)
-    for command in commands_:
-        print(f"{command.name} - {command.id}")
-    print("\n\n")
-    for command_g in roles.subcommands:
-        print(command_g.id)
 
 
 TARGET_ROLES = ["× Гл.Администратор Дискорда", "× Администратор Дискорда", "× Мл.Администратор Дискорда",
@@ -3658,49 +3292,30 @@ class GiveawayView(View):
             await self.message.channel.send(embed=embed)
 
 
-@bot.slash_command(name="giveaway", description="Создать розыгрыш")
-async def giveaway(ctx, seconds, prize: discord.Option(str, description="Приз который получит победитель"),
-                   winners_count: discord.Option(int, description="Макс кол-во победителей"),
-                   participants_limit: discord.Option(int, description="Макс кол-во участников"),
-                   description: discord.Option(str, description="Описание розыгрыша", default=False)):
-    try:
-        if ctx.guild is None:
-            await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
-            return
-        if not ctx.author.guild_permissions.administrator:
-            return
-        seconds = giveaway_parse_time(seconds)
-        formatted_time = giveaway_format_time(seconds)
-        embed = discord.Embed(title="🎉 Розыгрыш!", description=description or "Описание отсутствует", color=0x42f57b)
-        embed.add_field(name="Приз", value=prize, inline=False)
-        embed.add_field(name="Продолжительность", value=formatted_time, inline=False)
-        embed.add_field(name="Кол-во победителей", value=str(winners_count), inline=False)
-        embed.add_field(name="Максимальное кол-во участников", value=str(participants_limit), inline=False)
-        view = GiveawayView(seconds, prize, description, winners_count, participants_limit)
-        giveaway_message = await ctx.response.send_message(embed=embed, view=view)
-        view.message = giveaway_message
-    except Exception as e:
-        print(f"Произошла ошибка:\n{e}")
-
-
-# @bot.slash_command(name="find", description="Найти искомые слова в тексте")
-# async def find(ctx, words: str):
-#     modal = FindBanWords(words)
-#     await ctx.send_modal(modal)
+# @bot.slash_command(name="giveaway", description="Создать розыгрыш")
+# async def giveaway(ctx, seconds, prize: discord.Option(str, description="Приз который получит победитель"),
+#                    winners_count: discord.Option(int, description="Макс кол-во победителей"),
+#                    participants_limit: discord.Option(int, description="Макс кол-во участников"),
+#                    description: discord.Option(str, description="Описание розыгрыша", default=False)):
+#     try:
+#         if ctx.guild is None:
+#             await ctx.respond("Для использования этой команды добавьте меня на сервер!", ephemeral=True)
+#             return
+#         if not ctx.author.guild_permissions.administrator:
+#             return
+#         seconds = giveaway_parse_time(seconds)
+#         formatted_time = giveaway_format_time(seconds)
+#         embed = discord.Embed(title="🎉 Розыгрыш!", description=description or "Описание отсутствует", color=0x42f57b)
+#         embed.add_field(name="Приз", value=prize, inline=False)
+#         embed.add_field(name="Продолжительность", value=formatted_time, inline=False)
+#         embed.add_field(name="Кол-во победителей", value=str(winners_count), inline=False)
+#         embed.add_field(name="Максимальное кол-во участников", value=str(participants_limit), inline=False)
+#         view = GiveawayView(seconds, prize, description, winners_count, participants_limit)
+#         giveaway_message = await ctx.response.send_message(embed=embed, view=view)
+#         view.message = giveaway_message
+#     except Exception as e:
+#         print(f"Произошла ошибка:\n{e}")
 #
-#
-# class FindBanWords(discord.ui.Modal):
-#     def __init__(self, words):
-#         super().__init__(title="Введите текст")
-#         self.words = [word.strip() for word in words.split(',')]
-#         self.input = discord.ui.InputText(label="Введите текст для поиска:", style=discord.InputTextStyle.multiline)
-#         self.add_item(self.input)
-#
-#     async def callback(self, interaction: discord.Interaction):
-#         text = self.input.value
-#         found_terms = [word for word in self.words if word in text]
-#         await interaction.response.send_message(f"Найденные слова: {found_terms}", ephemeral=True)
-
 
 ban_data_file = "json/ban_data.json"
 
@@ -3946,8 +3561,10 @@ async def _faq(ctx):
                               "и более удобного управления ролями и сервером. Написав разработчику, вы можете заказать "
                               "команду/функционал для своего сервера."), color=discord.Color.default())
     embed.add_field(name="Основные команды",
-                    value="`/help` - Меню команд.\n`/предложение` - Написать идею для бота.\n`/bug_report` - Сообщить "
-                          "о баге.\n`/update` - Последние обновления.", inline=True)
+                    value="</help:1306213844712030264> - Меню команд.\n"
+                          "</предложение:1306213844909297685> - Написать идею для бота.\n"
+                          "</bug_report:1306213844909297684> - Сообщить о баге.\n"
+                          "</update:1306625242516557870> - Последнее обновление.", inline=True)
     embed.add_field(name="Информация о боте",
                     value=f"Кол-во серверов: {len(bot.guilds)}\n"
                           f"Версия: {version}\n"
@@ -3960,8 +3577,8 @@ async def _faq(ctx):
     embed.add_field(name="Префикс команд", value=f"`{pref}`", inline=True)
     embed.set_thumbnail(url=bot.user.avatar.url)
     embed.set_author(name=bot.user.name, icon_url=bot.user.avatar.url)
-    btn1 = Button(style=ButtonStyle.grey, label="Информация о создателе", url='https://solo.to/remod3')
-    btn2 = Button(style=ButtonStyle.green, label="Поддержать автора", url="https://www.donationalerts.com/r/remod3")
+    btn1 = ui.Button(label="Информация о создателе", url='https://solo.to/remod3', style=ButtonStyle.link)
+    btn2 = ui.Button(label="Поддержать автора", url="https://www.donationalerts.com/r/remod3", style=ButtonStyle.link)
     view = View()
     view.add_item(btn1)
     view.add_item(btn2)
@@ -3994,11 +3611,11 @@ async def inform(ctx):
                                                 "6275841395392552/a_1b9fe156b57bf2f57b054a27c0fe4f73.gif?width=575&heig"
                                                 "ht=575")
 
-    btn1 = Button(
+    btn1 = ui.Button(
         style=discord.ButtonStyle.grey,
         label="Информация о создателе",
         url='https://solo.to/remod3')
-    btn2 = Button(
+    btn2 = ui.Button(
         style=discord.ButtonStyle.green,
         label="Поддержать автора",
         url="https://www.donationalerts.com/r/remod3")
@@ -4080,8 +3697,7 @@ class UpdateView(View):
 
 @bot.slash_command(name="update", description="Последнее обновление")
 async def обновление(ctx):
-    current_update = ("**10.11.2024** Команды управления ролями были сгруппированы.\n"
-                      "Использование: `/role {command}`")
+    current_update = "**27.11.2024** Команда `/giveaway` временно отключена."
     embed = Embed(title="", description=current_update, color=Color.default())
     await ctx.response.send_message(embed=embed, ephemeral=True)
 
@@ -4151,6 +3767,363 @@ async def find_presence(ctx: discord.Interaction, text: str):
             if text in activity_name:
                 embed.add_field(name=f"", value=f"user: {member.mention}\n{member.activity.name}", inline=False)
     await ctx.response.send_message(embed=embed)
+
+
+class HelpSelect(Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(
+                label="Не выбрано",
+                emoji=discord.PartialEmoji(id=877264845366517770, name="No_Check")
+            ),
+            discord.SelectOption(
+                label="Настройки",
+                emoji=discord.PartialEmoji(name="43a63c2b9c4e96dc7a6a", id=1305791881791406151)
+            ),
+            discord.SelectOption(
+                label="Модерация",
+                emoji=discord.PartialEmoji(
+                    name="Ban_Hammer_7437",
+                    id=1303576542273863701
+                )
+            ),
+            discord.SelectOption(
+                label="Роли",
+                emoji=discord.PartialEmoji(
+                    name="Owner_7437",
+                    id=1303575461154132018
+                )
+            ),
+            discord.SelectOption(
+                label="Развлечения",
+                emoji=discord.PartialEmoji(name="controller", id=1107789264135139509)
+            ),
+            discord.SelectOption(
+                label="Другое",
+                emoji=discord.PartialEmoji(name="VisionAnemo", id=725173419133370390)
+            )
+        ]
+        super().__init__(placeholder="Выберите категорию", options=options, custom_id="help_command")
+
+    async def callback(self, ctx: discord.Interaction):
+        pref = get_prefix(bot, ctx)
+        selected_value = self.values[0]
+        if selected_value == "Настройки":
+            category_title = "Команды для настройки бота"
+        elif selected_value == "Модерация":
+            category_title = "Команды для модерации сервера"
+        elif selected_value == "Роли":
+            category_title = "Команды управления ролями. (/role *arg)"
+        elif selected_value == "Развлечения":
+            category_title = "Развлекательные команды"
+        elif selected_value == "Другое":
+            category_title = "Прочие команды"
+        else:
+            category_title = "Список команд"
+
+        embed = discord.Embed(title=category_title, color=discord.Color.blue())
+
+        def add_commands_to_embed(commands_permissions):
+            for cmd, info in commands_permissions.items():
+                if info.get('requires_permission') and not getattr(ctx.user.guild_permissions, info['permission'],
+                                                                   False):
+                    continue
+                if info.get('guild_access') and ctx.guild.id not in info['guild_access']:
+                    continue
+                if info.get('role_access') and not any(role.id in info['role_access'] for role in ctx.user.roles):
+                    continue
+                if info.get('user_access') and ctx.user.id not in info['user_access']:
+                    continue
+                embed.add_field(name="", value=info['description'], inline=False)
+            return embed
+
+        if selected_value == "Настройки":
+            commands_permissions = {
+                'prefix': {
+                    'permission': 'administrator',
+                    'description': f'`prefix` - Установить префикс команд бота. **Использование:** `{pref}prefix '
+                                   f'prefix`',
+                    'requires_permission': True,
+                    'guild_access': None,
+                    'role_access': None,
+                    'user_access': None
+                },
+                'set_system': {
+                    'permission': 'administrator',
+                    'description': f'</set_system:{bgac("set_system").id}> - Установить канал для уведомлений о '
+                                   f'входах/выходах.',
+                    'requires_permission': True,
+                    'guild_access': None,
+                    'role_access': None,
+                    'user_access': None
+                },
+            }
+            embed = add_commands_to_embed(commands_permissions)
+        elif selected_value == "Модерация":
+            commands_permissions = {
+                'kick': {
+                    'permission': 'kick_members',
+                    'description': f'</kick:{bgac("kick").id}> - Выгнать пользователя с сервера.',
+                    'requires_permission': True
+                },
+                'clear': {
+                    'permission': 'manage_messages',
+                    'description': f'</clear:{bgac("clear").id}> - Удалить сообщения в чате.',
+                    'requires_permission': True
+                },
+                'delchat': {
+                    'permission': 'manage_channels',
+                    'description': f'</delchat:{bgac("delchat").id}> - Удалить текстовый чат.',
+                    'requires_permission': True
+                },
+                'delvoice': {
+                    'permission': 'manage_channels',
+                    'description': f'</delvoice:{bgac("delvoice").id}> - Удалить голосовой чат.',
+                    'requires_permission': True
+                },
+                'nick': {
+                    'permission': 'manage_nicknames',
+                    'description': f'</nick:{bgac("nick").id}> - Изменить ник пользователя.',
+                    'requires_permission': True
+                },
+                'presence': {
+                    'permission': 'manage_guild',
+                    'description': f'</presence:{bgac("presence").id}> - Поиск людей с определённой активностью.',
+                    'requires_permission': True
+                }
+            }
+            embed = add_commands_to_embed(commands_permissions)
+        elif selected_value == "Роли":
+            commands_permissions = {
+                'add': {
+                    'permission': 'manage_roles',
+                    'description': f'</role add:{bgac("role").id}> - Выдать пользователю роль.',
+                    'requires_permission': True
+                },
+                'create': {
+                    'permission': 'manage_roles',
+                    'description': f'</role create:{bgac("role").id}> - Создать роль.',
+                    'requires_permission': True
+                },
+                'delperm': {
+                    'permission': 'administrator',
+                    'description': f'</role delperm:{bgac("role").id}> - Забрать право у роли.',
+                    'requires_permission': True
+                },
+                'do': {
+                    'permission': 'manage_roles',
+                    'description': f'</role do:{bgac("role").id}> - Повысить роль пользователя на 1 уровень.',
+                    'requires_permission': True
+                },
+                'delete': {
+                    'permission': 'manage_roles',
+                    'description': f'</role delete:{bgac("role").id}> - Удалить роль.',
+                    'requires_permission': True
+                },
+                'pre': {
+                    'permission': 'administrator',
+                    'description': f'</role pre:{bgac("role").id}> - Изменить приоритет роли.',
+                    'requires_permission': True
+                },
+                'clear': {
+                    'permission': 'administrator',
+                    'description': f'</role clear:{bgac("role").id}> - Забрать все роли у пользователя.',
+                    'requires_permission': True
+                },
+                'color': {
+                    'permission': 'manage_roles',
+                    'description': f'</role color:{bgac("role").id}> - Изменить цвет роли.',
+                    'requires_permission': True
+                },
+                'remove': {
+                    'permission': 'manage_roles',
+                    'description': f'</role delete:{bgac("role").id}> - Забрать роль у пользователя.',
+                    'requires_permission': True
+                },
+                'replace': {
+                    'permission': 'manage_roles',
+                    'description': f'</role replace:{bgac("role").id}> - Заменить роль у пользователя.',
+                    'requires_permission': True
+                },
+                'name': {
+                    'permission': 'manage_roles',
+                    'description': f'</role rename:{bgac("role").id}> - Переименовать роль.',
+                    'requires_permission': True
+                },
+                'list': {
+                    'permission': 'manage_roles',
+                    'description': f'</role list:{bgac("role").id}> - Список ролей сервера.',
+                    'requires_permission': True
+                },
+                'setperm': {
+                    'permission': 'administrator',
+                    'description': f'</role setperm:{bgac("role").id}> - Установить право для роли.',
+                    'requires_permission': True
+                },
+                'up': {
+                    'permission': 'manage_roles',
+                    'description': f'</role up:{bgac("role").id}> - Повысить роль пользователя на 1 уровень.',
+                    'requires_permission': True
+                }
+            }
+            embed = add_commands_to_embed(commands_permissions)
+        elif selected_value == "Развлечения":
+            commands_permissions = {
+                '8ball': {
+                    'permission': '',
+                    'description': f'</8ball:{bgac("8ball").id}> - Игра на кик с сервера, шанс проиграть 10%.',
+                    'requires_permission': False
+                },
+                # 'giveaway': {
+                #     'permission': 'administrator',
+                #     'description': '</giveaway:1306213844909297686> - Сделать розыгрыш на сервере.',
+                #     'requires_permission': True
+                # },
+                'anime': {
+                    'permission': '',
+                    'description': f'</anime:{bgac("anime").id}> - Посмотреть информацию об аниме.',
+                    'requires_permission': False
+                }
+            }
+            embed = add_commands_to_embed(commands_permissions)
+        elif selected_value == "Другое":
+            commands_permissions = {
+                'mserver': {
+                    'permission': 'administrator',
+                    'description': f'</mserver:{bgac("mserver").id}> - Посмотреть информацию о Minecraft сервере.',
+                    'requires_permission': False,
+                    'guild_access': None,
+                    'role_access': None,
+                    'user_access': None
+                },
+                'avatar': {
+                    'permission': 'administrator',
+                    'description': f'</avatar:{bgac("avatar").id}> Получить пользователя или сервера.',
+                    'requires_permission': False,
+                    'guild_access': None,
+                    'role_access': None,
+                    'user_access': None
+                },
+                'calculate': {
+                    'permission': 'administrator',
+                    'description': f'</calculate:{bgac("calculate").id}> - Посчитать выражение.',
+                    'requires_permission': False,
+                    'guild_access': None,
+                    'role_access': None,
+                    'user_access': None
+                },
+                'faq': {
+                    'permission': 'administrator',
+                    'description': f'</faq:{bgac("faq").id}> - Информация о боте.',
+                    'requires_permission': False,
+                    'guild_access': None,
+                    'role_access': None,
+                    'user_access': None
+                },
+                'предложение': {
+                    'permission': 'administrator',
+                    'description': f'</предложение:{bgac("предложение").id}> - Предложить улучшить бота.',
+                    'requires_permission': False,
+                    'guild_access': None,
+                    'role_access': None,
+                    'user_access': None
+                },
+                'bug_report': {
+                    'permission': None,
+                    'description': f'</bug_report:{bgac("bug_report").id}> - Сообщить о баге в боте.',
+                    'requires_permission': False,
+                    'guild_access': None,
+                    'role_access': None,
+                    'user_access': None
+                },
+                'unreg': {
+                    'permission': 'administrator',
+                    'description': f'</unreg:{bgac("unreg").id}> - Снять модератора с должности.',
+                    'requires_permission': True,
+                    'guild_access': [1263854530445971671],
+                    'role_access': [1263854775900835904],
+                    'user_access': [931585084312670219, 933020119783858247, 1097064973328453704, 743864658951274528]
+                },
+                'reg': {
+                    'permission': 'administrator',
+                    'description': f'</reg:{bgac("reg").id}> - Принять игрока на должность.',
+                    'requires_permission': True,
+                    'guild_access': [1263854530445971671],
+                    'role_access': [1263854775900835904],
+                    'user_access': [931585084312670219, 933020119783858247, 1097064973328453704, 743864658951274528]
+                },
+                'dsup': {
+                    'permission': 'administrator',
+                    'description': f'</dsup:{bgac("dsup").id}> - Повысить/понизить модератора Discord в должности.',
+                    'requires_permission': True,
+                    'guild_access': [1138204059397005352],
+                    'role_access': [1219899085855789056, 1250430571252023397, 1228593717586427987],
+                    'user_access': None
+                },
+                'munreg': {
+                    'permission': 'administrator',
+                    'description': f'`</munreg:{bgac("munreg").id}` - Снять модератора Discord с должности.',
+                    'requires_permission': True,
+                    'guild_access': [1138204059397005352],
+                    'role_access': [1219899085855789056, 1250430571252023397, 1228593717586427987],
+                    'user_access': [990180688504434688]
+                },
+                'report': {
+                    'permission': 'administrator',
+                    'description': f'</report:{bgac("report").id}> - Отправить жалобу на игрока.',
+                    'requires_permission': False,
+                    'guild_access': [1138204059397005352],
+                    'role_access': None,
+                    'user_access': None
+                },
+                'hmb': {
+                    'permission': 'administrator',
+                    'description': '`hmb` - Вызвать сообщение с выбором ролей уведомлений HightMine. '
+                                   f'**Использование:** `{pref}hmb`',
+                    'requires_permission': True,
+                    'guild_access': [1138204059397005352],
+                    'role_access': None,
+                    'user_access': None
+                },
+                'caps': {
+                    'permission': 'manage_messages',
+                    'description': f'</caps:{bgac("caps").id}> - Узнать % верхнего регистра.',
+                    'requires_permission': False,
+                    'guild_access': None,
+                    'role_access': None,
+                    'user_access': None
+                },
+                'send_stat': {
+                    'permission': 'administrator',
+                    'description': f'</send_stat:{bgac("send_stat").id}> - Назначить канал для статистики сервера.',
+                    'requires_permission': True
+                }
+            }
+            embed = add_commands_to_embed(commands_permissions)
+        if self.values[0] == "Не выбрано":
+            await ctx.response.defer(invisible=True)
+            return
+        if not embed.fields:
+            await ctx.response.send_message("Нет прав на использование команд в этой категории.", ephemeral=True)
+        else:
+            await ctx.response.send_message(embed=embed, ephemeral=True)
+
+
+class HelpView(discord.ui.View):
+    def __init__(self):
+        self.custom_id = "help_view"
+        super().__init__(timeout=None)
+        self.add_item(HelpSelect())
+
+        async def on_error(self, error: Exception, interaction: Interaction) -> None:
+            await interaction.response.send_message("Произошла ошибка! Свяжитесь с разработчиком для решения проблемы: "
+                                                    f"`remodik`\n\n{error}")
+
+
+@bot.slash_command(name="help", description="Информация о моих командах")
+async def _help(ctx: Interaction):
+    view = HelpView()
+    await ctx.response.send_message(ephemeral=True, view=view, content="Помощь по моим командам")
 
 
 bot.add_application_command(roles)
