@@ -11,3 +11,6 @@ pillow~=10.3.0
 numpy~=1.26.4
 matplotlib~=3.8.4
 beautifulsoup4~=4.12.3
+pypresence~=4.3.0
+scipy~=1.14.1
+psutil~=6.1.1
